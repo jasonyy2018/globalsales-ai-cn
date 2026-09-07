@@ -12,6 +12,7 @@ RUN apk add --no-cache libc6-compat python3 make g++
 
 COPY .npmrc package.json pnpm-lock.yaml* ./
 RUN pnpm config set registry https://registry.npmmirror.com && \
+    (pnpm approve-builds --all 2>/dev/null || true) && \
     (pnpm install --frozen-lockfile || pnpm install)
 
 # Stage 2: Application Build
