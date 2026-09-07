@@ -1,0 +1,54 @@
+{
+  "source": "https://aio.cfvnet.ggff.net/",
+  "font": "-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,\"PingFang SC\",\"Hiragino Sans GB\",\"Microsoft YaHei\",sans-serif",
+  "mono": "ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,\"Liberation Mono\",\"Courier New\",monospace",
+  "bg": {
+    "page": "#020617",
+    "card": "#0f172a",
+    "raised": "#1e293b",
+    "hover": "#334155"
+  },
+  "text": {
+    "primary": "#f8fafc",
+    "strong": "#e2e8f0",
+    "body": "#cbd5e1",
+    "muted": "#94a3b8",
+    "dim": "#64748b"
+  },
+  "border": {
+    "default": "#1e293b",
+    "strong": "#334155"
+  },
+  "accent_gradients": {
+    "primary": "linear-gradient(to right,#e11d48,#db2777)",
+    "secondary": "linear-gradient(to right,#4f46e5,#9333ea)",
+    "success": "linear-gradient(to right,#059669,#0d9488)",
+    "info": "linear-gradient(to right,#0891b2,#2563eb)"
+  },
+  "shadow": {
+    "sm": "0 1px 2px 0 #0000000d",
+    "md": "0 4px 6px -1px #0000001a, 0 2px 4px -2px #0000001a",
+    "lg": "0 10px 15px -3px #0000001a, 0 4px 6px -4px #0000001a",
+    "xl": "0 20px 25px -5px #0000001a, 0 8px 10px -6px #0000001a",
+    "2xl": "0 25px 50px -12px #00000040",
+    "glow_primary": "0 10px 15px -3px rgba(225,29,72,0.20)",
+    "glow_secondary": "0 10px 15px -3px rgba(79,70,229,0.20)"
+  },
+  "radius": {
+    "md": "0.5rem",
+    "xl": "0.75rem",
+    "2xl": "1rem",
+    "full": "9999px"
+  },
+  "blur": {
+    "sm": "4px",
+    "md": "12px",
+    "xl": "24px"
+  },
+  "notes": [
+    "无位图背景，全部是 linear-gradient",
+    "字体是无衬线（PingFang SC / 微软雅黑），不是宋体",
+    "卡片常用 bg-slate-900/80 + backdrop-blur 做毛玻璃",
+    "边框比现状更暗（slate-800 而非 slate-700），层次靠底色差而非亮边框"
+  ]
+}

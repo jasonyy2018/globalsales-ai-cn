@@ -1,0 +1,61 @@
+# ---- 密钥与凭据：绝不入库 ----
+.env
+.env.*
+!.env.example
+
+# ---- 用户数据：含用户名、PBKDF2 哈希、会话 token、生成的资产 ----
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.bak
+*.prevacuum.bak
+
+# ---- 旧副本 / 备份目录：会带着历史密钥快照，且不随源码更新 ----
+backup/
+*副本*
+*.orig
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ---- Claude Code 本地状态 ----
+# settings.local.json 记录允许过的 Bash 命令原文，调试时带 -H "Authorization: Bearer ..."
+# 的那些会把密钥抄进来（实测抄到过 6 条）。整个目录不入库、也不对 HTTP 开放。
+.claude/
+
+# ---- 前端依赖与构建产物 ----
+node_modules/
+.next/
+out/
+dist/
+build/
+output/
+
+# ---- 日志与构建缓存 ----
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+*.tsbuildinfo
+
+# ---- 大文件媒体 ----
+*.mp4
+
+# ---- 临时文件 ----
+_check.mjs
+_t.py
+_c*.txt
+_body.json
+
