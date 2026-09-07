@@ -2,7 +2,7 @@
 FROM node:22-alpine AS base
 WORKDIR /app
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories 2>/dev/null || true
-RUN npm install -g pnpm --registry=https://registry.npmmirror.com
+RUN npm install -g pnpm@10 --registry=https://registry.npmmirror.com
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
@@ -10,9 +10,8 @@ ENV PATH="$PNPM_HOME:$PATH"
 FROM base AS deps
 RUN apk add --no-cache libc6-compat python3 make g++
 
-COPY .npmrc package.json pnpm-lock.yaml* ./
+COPY .npmrc package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
 RUN pnpm config set registry https://registry.npmmirror.com && \
-    (pnpm approve-builds --all 2>/dev/null || true) && \
     (pnpm install --frozen-lockfile || pnpm install)
 
 # Stage 2: Application Build
