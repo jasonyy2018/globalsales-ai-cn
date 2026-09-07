@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Script from "next/script";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { MainContent } from "@/components/layout/MainContent";
 import type { User } from "@/types";
@@ -58,8 +57,6 @@ export default function Home() {
       {/* 1:1 Aligned Main Content and Overlays */}
       <MainContent />
 
-      {/* Original Client Runtime Script */}
-      <Script src="/app.js" strategy="afterInteractive" />
     </div>
   );
 }

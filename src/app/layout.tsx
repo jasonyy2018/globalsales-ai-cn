@@ -16,6 +16,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN" className="dark" suppressHydrationWarning>
+      <head>
+        <script src="/app.js" defer></script>
+      </head>
       <body suppressHydrationWarning className="antialiased bg-[#020617] text-slate-200 selection:bg-indigo-500 selection:text-white">
         {children}
       </body>
