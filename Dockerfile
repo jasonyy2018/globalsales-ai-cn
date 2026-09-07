@@ -1,24 +1,21 @@
-# Stage 1: Dependencies & native module compilation
-FROM node:22-alpine AS deps
-RUN apk add --no-cache libc6-compat python3 make g++
+# Base stage with mirror and pnpm pre-installed
+FROM node:22-alpine AS base
 WORKDIR /app
-
-# Enable pnpm
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories 2>/dev/null || true
+RUN npm install -g pnpm --registry=https://registry.npmmirror.com
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
 
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
+# Stage 1: Dependencies & native module compilation
+FROM base AS deps
+RUN apk add --no-cache libc6-compat python3 make g++
+
+COPY .npmrc package.json pnpm-lock.yaml* ./
+RUN pnpm config set registry https://registry.npmmirror.com && \
+    (pnpm install --frozen-lockfile || pnpm install)
 
 # Stage 2: Application Build
-FROM node:22-alpine AS builder
-WORKDIR /app
-
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable
-
+FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
@@ -34,6 +31,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=8766
 ENV HOSTNAME="0.0.0.0"
 
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories 2>/dev/null || true
 RUN apk add --no-cache libc6-compat libstdc++
 
 RUN addgroup --system --gid 1001 nodejs && \
