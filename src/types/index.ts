@@ -102,6 +102,7 @@ export interface ScrapeProductResult {
   platform?: string;
   antibot?: boolean;
   message?: string;
+  error?: string;
 }
 
 export interface WebSearchResult {
