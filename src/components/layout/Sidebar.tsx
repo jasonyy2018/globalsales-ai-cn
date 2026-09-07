@@ -21,6 +21,7 @@ export function Sidebar({
   assetsCount = 0,
 }: SidebarProps) {
   const isAdmin = user?.role === "admin";
+  const getNavClass = (section: string) => (currentSection === section ? "nav-item active" : "nav-item");
 
   return (
     <aside className="sidebar">
@@ -36,7 +37,7 @@ export function Sidebar({
       {/* Navigation items divided by exact .nav-divider */}
       <nav style={{ flex: 1, display: "flex", flexDirection: "column" }}>
         <button
-          className={`nav-item ${currentSection === "sourcing" ? "active" : ""}`}
+          className={getNavClass("sourcing")}
           id="nav-sourcing"
           onClick={() => onSelectSection("sourcing")}
         >
@@ -46,7 +47,7 @@ export function Sidebar({
         </button>
         <div className="nav-divider" />
         <button
-          className={`nav-item ${currentSection === "hotspot" ? "active" : ""}`}
+          className={getNavClass("hotspot")}
           id="nav-hotspot"
           onClick={() => onSelectSection("hotspot")}
         >
@@ -55,7 +56,7 @@ export function Sidebar({
           <span className="nav-badge">实时</span>
         </button>
         <button
-          className={`nav-item ${currentSection === "product" ? "active" : ""}`}
+          className={getNavClass("product")}
           id="nav-product"
           onClick={() => onSelectSection("product")}
         >
@@ -64,7 +65,7 @@ export function Sidebar({
           <span className="nav-badge">URL</span>
         </button>
         <button
-          className={`nav-item ${currentSection === "article" ? "active" : ""}`}
+          className={getNavClass("article")}
           id="nav-article"
           onClick={() => onSelectSection("article")}
         >
@@ -72,7 +73,7 @@ export function Sidebar({
           <span>图文生成</span>
         </button>
         <button
-          className={`nav-item ${currentSection === "video" ? "active" : ""}`}
+          className={getNavClass("video")}
           id="nav-video"
           onClick={() => onSelectSection("video")}
         >
@@ -81,7 +82,7 @@ export function Sidebar({
         </button>
         <div className="nav-divider" />
         <button
-          className={`nav-item ${currentSection === "freeqa" ? "active" : ""}`}
+          className={getNavClass("freeqa")}
           id="nav-freeqa"
           onClick={() => onSelectSection("freeqa")}
         >
@@ -89,7 +90,7 @@ export function Sidebar({
           <span>自由问答</span>
         </button>
         <button
-          className={`nav-item ${currentSection === "text-studio" ? "active" : ""}`}
+          className={getNavClass("text-studio")}
           id="nav-text-studio"
           onClick={() => onSelectSection("text-studio")}
         >
@@ -97,7 +98,7 @@ export function Sidebar({
           <span>文案创作</span>
         </button>
         <button
-          className={`nav-item ${currentSection === "image" ? "active" : ""}`}
+          className={getNavClass("image")}
           id="nav-image"
           onClick={() => onSelectSection("image")}
         >
@@ -105,7 +106,7 @@ export function Sidebar({
           <span>图片创作</span>
         </button>
         <button
-          className={`nav-item ${currentSection === "video-create" ? "active" : ""}`}
+          className={getNavClass("video-create")}
           id="nav-video-create"
           onClick={() => onSelectSection("video-create")}
         >
@@ -113,7 +114,7 @@ export function Sidebar({
           <span>视频创作</span>
         </button>
         <button
-          className={`nav-item ${currentSection === "comment" ? "active" : ""}`}
+          className={getNavClass("comment")}
           id="nav-comment"
           onClick={() => onSelectSection("comment")}
         >
@@ -121,7 +122,7 @@ export function Sidebar({
           <span>热门评论衍生</span>
         </button>
         <button
-          className={`nav-item ${currentSection === "smart-reply" ? "active" : ""}`}
+          className={getNavClass("smart-reply")}
           id="nav-smart-reply"
           onClick={() => onSelectSection("smart-reply")}
         >
@@ -130,7 +131,7 @@ export function Sidebar({
         </button>
         <div className="nav-divider" />
         <button
-          className={`nav-item ${currentSection === "accounts" ? "active" : ""}`}
+          className={getNavClass("accounts")}
           id="nav-accounts"
           onClick={() => onSelectSection("accounts")}
         >
@@ -139,7 +140,7 @@ export function Sidebar({
           <span className="nav-badge">0</span>
         </button>
         <button
-          className={`nav-item ${currentSection === "assets" ? "active" : ""}`}
+          className={getNavClass("assets")}
           id="nav-assets"
           onClick={() => onSelectSection("assets")}
         >
@@ -149,7 +150,7 @@ export function Sidebar({
           <span className="nav-badge" id="nav-assets-badge">{assetsCount}</span>
         </button>
         <button
-          className={`nav-item ${currentSection === "ip-stats" ? "active" : ""}`}
+          className={getNavClass("ip-stats")}
           id="nav-ip-stats"
           onClick={() => onSelectSection("ip-stats")}
         >
@@ -158,7 +159,7 @@ export function Sidebar({
         </button>
         <div className="nav-divider" />
         <button
-          className={`nav-item ${currentSection === "commerce-platforms" ? "active" : ""}`}
+          className={getNavClass("commerce-platforms")}
           id="nav-commerce-platforms"
           onClick={() => onSelectSection("commerce-platforms")}
         >
@@ -166,7 +167,7 @@ export function Sidebar({
           <span>主流电商平台</span>
         </button>
         <button
-          className={`nav-item ${currentSection === "social-platforms" ? "active" : ""}`}
+          className={getNavClass("social-platforms")}
           id="nav-social-platforms"
           onClick={() => onSelectSection("social-platforms")}
         >
@@ -174,7 +175,7 @@ export function Sidebar({
           <span>主流社媒平台</span>
         </button>
         <button
-          className={`nav-item ${currentSection === "holidays" ? "active" : ""}`}
+          className={getNavClass("holidays")}
           id="nav-holidays"
           onClick={() => onSelectSection("holidays")}
         >
@@ -182,7 +183,7 @@ export function Sidebar({
           <span>国内营销节日</span>
         </button>
         <button
-          className={`nav-item ${currentSection === "metrics" ? "active" : ""}`}
+          className={getNavClass("metrics")}
           id="nav-metrics"
           onClick={() => onSelectSection("metrics")}
         >
@@ -191,7 +192,7 @@ export function Sidebar({
         </button>
         <div className="nav-divider" />
         <button
-          className={`nav-item ${currentSection === "prompts" ? "active" : ""}`}
+          className={getNavClass("prompts")}
           id="nav-prompts"
           onClick={() => onSelectSection("prompts")}
         >
@@ -199,7 +200,7 @@ export function Sidebar({
           <span>提示词配置</span>
         </button>
         <button
-          className={`nav-item ${currentSection === "models" ? "active" : ""}`}
+          className={getNavClass("models")}
           id="nav-models"
           onClick={() => onSelectSection("models")}
         >
@@ -207,7 +208,7 @@ export function Sidebar({
           <span>大模型配置</span>
         </button>
         <button
-          className={`nav-item ${currentSection === "model-shop" ? "active" : ""}`}
+          className={getNavClass("model-shop")}
           id="nav-model-shop"
           onClick={() => onSelectSection("model-shop")}
         >
@@ -216,7 +217,7 @@ export function Sidebar({
         </button>
         <div className="nav-divider" />
         <button
-          className={`nav-item ${currentSection === "demo" ? "active" : ""}`}
+          className={getNavClass("demo")}
           id="nav-demo"
           onClick={() => onSelectSection("demo")}
         >
@@ -224,118 +225,81 @@ export function Sidebar({
           <span>操作演示</span>
         </button>
         <button
-          className={`nav-item ${currentSection === "user-center" ? "active" : ""}`}
+          className={getNavClass("user-center")}
           id="nav-user-center"
           onClick={() => onSelectSection("user-center")}
         >
           <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"></path></svg>
           <span>用户中心</span>
         </button>
-        {isAdmin && (
-          <button
-            className={`nav-item ${currentSection === "users" ? "active" : ""}`}
-            id="nav-users"
-            onClick={() => onSelectSection("users")}
-          >
-            <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            <span>用户管理</span>
-          </button>
-        )}
+                <button
+          className={getNavClass("users")}
+          id="nav-users"
+          style={isAdmin ? undefined : { display: "none" }}
+          onClick={() => onSelectSection("users")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          <span>用户管理</span>
+        </button>
       </nav>
 
       {/* 1:1 Exact User Badge and System Status */}
       <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
-        {user ? (
-          <div id="userBadge" style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", fontSize: "13px" }}>
-            <div
-              id="userBadgeAvatar"
-              style={{
-                width: "26px",
-                height: "26px",
-                borderRadius: "50%",
-                background: "var(--accent)",
-                color: "#fff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 700,
-                fontSize: "12px",
-              }}
-            >
-              {user.username ? user.username.charAt(0).toUpperCase() : "U"}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div id="userBadgeName" style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {user.username}
-              </div>
-              <div id="userBadgeRole" style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
-                {user.role === "admin" ? "管理员" : "普通用户"}
-              </div>
-            </div>
-            <button
-              onClick={onLogout}
-              title="退出登录"
-              style={{
-                flexShrink: 0,
-                background: "none",
-                border: "1px solid var(--border)",
-                borderRadius: "6px",
-                color: "var(--text-secondary)",
-                cursor: "pointer",
-                padding: "4px 10px",
-                fontSize: "12px",
-                whiteSpace: "nowrap",
-              }}
-            >
-              退出登录
-            </button>
+        <div id="userBadge" suppressHydrationWarning style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", fontSize: "13px" }}>
+          <div
+            id="userBadgeAvatar"
+            suppressHydrationWarning
+            style={{
+              width: "26px",
+              height: "26px",
+              borderRadius: "50%",
+              background: "var(--accent)",
+              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontWeight: 700,
+              fontSize: "12px",
+            }}
+          >
+            {user?.username ? user.username.charAt(0).toUpperCase() : "U"}
           </div>
-        ) : (
-          <div id="userBadge" style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", fontSize: "13px" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
             <div
-              id="userBadgeAvatar"
-              style={{
-                width: "26px",
-                height: "26px",
-                borderRadius: "50%",
-                background: "var(--accent)",
-                color: "#fff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontWeight: 700,
-                fontSize: "12px",
-              }}
+              id="userBadgeName"
+              suppressHydrationWarning
+              style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
             >
-              ?
+              {user?.username || "未登录"}
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div id="userBadgeName" style={{ fontWeight: 600, color: "var(--text-secondary)" }}>
-                未登录
-              </div>
-              <div id="userBadgeRole" style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
-                请先登录
-              </div>
-            </div>
-            <button
-              onClick={onOpenAuth}
-              title="登录 / 注册"
-              style={{
-                flexShrink: 0,
-                background: "var(--accent)",
-                border: "none",
-                borderRadius: "6px",
-                color: "#fff",
-                cursor: "pointer",
-                padding: "4px 10px",
-                fontSize: "12px",
-                whiteSpace: "nowrap",
-              }}
+            <div
+              id="userBadgeRole"
+              suppressHydrationWarning
+              style={{ fontSize: "11px", color: "var(--text-secondary)" }}
             >
-              登录
-            </button>
+              {user ? (user.role === "admin" ? "管理员" : "普通用户") : "请先登录"}
+            </div>
           </div>
-        )}
+          <button
+            onClick={user ? onLogout : onOpenAuth}
+            title={user ? "退出登录" : "退出登录"}
+            data-i18n-title="app.logout"
+            data-i18n="app.logout"
+            style={{
+              flexShrink: 0,
+              background: "none",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              color: "var(--text-secondary)",
+              cursor: "pointer",
+              padding: "4px 10px",
+              fontSize: "12px",
+              whiteSpace: "nowrap",
+            }}
+          >
+            退出登录
+          </button>
+        </div>
 
         <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>当前状态</div>
         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
