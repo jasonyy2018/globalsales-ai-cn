@@ -32,7 +32,7 @@ ENV PORT=8766
 ENV HOSTNAME="0.0.0.0"
 
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories 2>/dev/null || true
-RUN apk add --no-cache libc6-compat libstdc++
+RUN apk add --no-cache libc6-compat libstdc++ su-exec
 
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
@@ -50,10 +50,13 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # Ensure better-sqlite3 native bindings from deps are available
 COPY --from=deps --chown=nextjs:nodejs /app/node_modules/better-sqlite3 ./node_modules/better-sqlite3
 
-USER nextjs
+# Copy entrypoint script to fix volume permissions before dropping root privileges
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 8766
 
 VOLUME ["/app/data"]
 
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["node", "server.js"]
