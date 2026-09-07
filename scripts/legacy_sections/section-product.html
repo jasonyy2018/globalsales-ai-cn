@@ -1,0 +1,33 @@
+<section class="section" id="section-product">
+<div class="section-header">
+<h2 data-i18n="product.title">商品情报抓取</h2>
+<p data-i18n="product.subtitle">粘贴商品链接，AI 自动抓取标题、卖点与图片，作为图文/脚本/视频的生成素材。注意：淘宝天猫、京东、拼多多、抖音商城等平台的商品页有反爬限制，多数抓不到，遇到失败请把标题与卖点手工粘到「副文本」区</p>
+</div>
+<div class="card" style="margin-bottom:20px;">
+<label data-i18n="product.url.label" style="font-size:14px;font-weight:500;display:block;margin-bottom:8px;">商品链接 URL</label>
+<div style="display:flex;gap:10px;flex-wrap:wrap;">
+<input class="text-input" data-i18n-placeholder="product.url.placeholder" id="productUrlInput" onkeydown="if(event.key==='Enter')scrapeProduct()" placeholder="例：https://product.dangdang.com/1125243395.html" style="flex:1;min-width:280px;" type="url"/>
+<button class="btn btn-primary" id="btnScrapeProduct" onclick="scrapeProduct()">
+<svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="16"><path d="M21 21l-4.35-4.35"></path><circle cx="11" cy="11" r="8"></circle></svg>
+<span data-i18n="product.btn.scrape">抓取商品信息</span>
+</button>
+<button class="btn btn-outline" data-i18n="product.btn.clear" id="btnClearProduct" onclick="clearProductContext()" style="display:none;">
+            清空商品上下文
+          </button>
+</div>
+<div style="margin-top:12px;">
+<div data-i18n="product.samples.hint" style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;">💡 没有链接？点下面任一示例商品页，一键体验抓取效果：</div>
+<div id="productSampleChips" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+</div>
+</div>
+<div id="productLoading" style="display:none;text-align:center;padding:40px 20px;">
+<div style="width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>
+<p style="color:var(--text-secondary);">正在解析商品页面，抓取标题、卖点与主图...</p>
+</div>
+<div id="productCard" style="display:none;"></div>
+<div id="productEmpty" style="text-align:center;padding:60px 20px;color:var(--text-secondary);">
+<svg fill="none" height="64" stroke="var(--text-secondary)" stroke-width="1.2" style="margin:0 auto 16px;opacity:0.6;" viewbox="0 0 24 24" width="64"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" x2="21" y1="6" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+<p style="font-size:15px;">还没有抓取任何商品</p>
+<p style="font-size:13px;margin-top:4px;">粘贴一个国内电商商品链接，AI 会解析出商品信息并注入到后续图文/视频生成流程</p>
+</div>
+</section>

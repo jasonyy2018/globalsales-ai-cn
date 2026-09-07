@@ -1,0 +1,23 @@
+<section class="section" id="section-assets">
+<div class="section-header">
+<h2 data-i18n="assets.title">📂 自媒体资产</h2>
+<p data-i18n="assets.subtitle">管理你生成的所有内容，按类别快速查找、下载、删除</p>
+<div id="assetTabs" style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+<button class="asset-tab active" data-i18n="assets.tab.all" onclick="filterAssets('all', this)">📋 全部</button>
+<button class="asset-tab" data-i18n="assets.tab.article" onclick="filterAssets('article', this)">📝 图文文章</button>
+<button class="asset-tab" data-i18n="assets.tab.image" onclick="filterAssets('image', this)">🖼️ 图片</button>
+<button class="asset-tab" data-i18n="assets.tab.script" onclick="filterAssets('script', this)">🎬 短视频脚本</button>
+<button class="asset-tab" data-i18n="assets.tab.video" onclick="filterAssets('video', this)">🎥 短视频</button>
+<button class="asset-tab" data-i18n="assets.tab.boom" onclick="filterAssets('boom', this)">🔥 爆款拆解</button>
+</div>
+</div>
+<div id="assetSearchWrap" style="margin-bottom:16px;display:none;">
+<input data-i18n-placeholder="assets.search.placeholder" id="assetSearchInput" oninput="filterAssets(currentAssetCategory, null, this.value)" placeholder="搜索标题或内容..." style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);font-size:14px;" type="text"/>
+</div>
+<div id="assetList" style="display:flex;flex-direction:column;gap:12px;"></div>
+<div class="empty-state" id="assetEmpty" style="display:none;">
+<div class="empty-icon">📂</div>
+<p data-i18n="assets.empty.title" style="font-size:16px;font-weight:500;margin-bottom:4px;">暂无内容</p>
+<p data-i18n="assets.empty.hint" style="font-size:13px;">去生成一些内容吧～</p>
+</div>
+</section>

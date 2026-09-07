@@ -1,0 +1,127 @@
+<section class="section" id="section-video-create">
+<div class="section-header">
+<h2 data-i18n="vc.title">🎬 视频创作</h2>
+<p data-i18n="vc.subtitle">输入视频描述并上传参考图片，AI 为你生成高质量短视频。适用于抖音 / 快手 / 视频号 / 小红书 / B站 的带货与种草内容。</p>
+</div>
+<div class="card" style="padding:24px;">
+<!-- 视频提示词 -->
+<div style="margin-bottom:18px;">
+<div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:8px;"><span data-i18n="vc.prompt.title">🎯 视频提示词</span> <span data-i18n="vc.prompt.subtitle" style="font-weight:400;color:var(--text-secondary);font-size:12px;">（描述你想生成的视频内容，画面文字与字幕以中文为准）</span></div>
+<textarea data-i18n-placeholder="vc.prompt.placeholder" id="vcPromptInput" placeholder="例如：影视级预告片、漫剧开场、古装仙侠人物出场、赛车追逐、美食探店等..." rows="4" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-input);color:var(--text-primary);font-size:14px;font-family:inherit;resize:vertical;"></textarea>
+<div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap;">
+<button class="btn btn-outline btn-sm" data-i18n="vc.prompt.optimize" id="btnOptimizeVcPrompt" onclick="optimizeVideoPrompt()">AI优化提示词</button>
+<span data-i18n="vc.prompt.optimize.hint" id="vcPromptOptimizeHint" style="font-size:12px;color:var(--text-secondary);">输入简单主题后，可用火山方舟优化成专业级视频提示词</span>
+</div>
+</div>
+<!-- 参考图 -->
+<div style="margin-bottom:18px;">
+<div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:8px;"><span data-i18n="vc.ref.title">🖼 参考图</span> <span data-i18n="vc.ref.subtitle" style="font-weight:400;color:var(--text-secondary);font-size:12px;">（可选，上传后 AI 会参考此图片生成视频）</span></div>
+<div id="vcRefDropzone" onclick="document.getElementById('vcRefInput').click()" style="border:2px dashed var(--border);border-radius:12px;padding:32px;text-align:center;cursor:pointer;background:var(--bg-input);transition:all 0.2s;">
+<div id="vcRefPlaceholder">
+<svg fill="none" height="40" stroke="var(--text-secondary)" stroke-width="1.5" style="margin-bottom:8px;" viewbox="0 0 24 24" width="40"><rect height="18" rx="2" width="18" x="3" y="3"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21,15 16,10 5,21"></polyline></svg>
+<div style="color:var(--text-secondary);font-size:13px;">点击上传参考图</div>
+</div>
+<img id="vcRefPreview" style="display:none;max-height:200px;border-radius:8px;"/>
+</div>
+<input accept="image/*" id="vcRefInput" onchange="vcHandleRefUpload(this)" style="display:none;" type="file"/>
+</div>
+<!-- 视频模型 + 时长 + 风格 + 生成按钮（同一行） -->
+<div style="display:flex;align-items:flex-end;gap:14px;margin-bottom:14px;flex-wrap:wrap;">
+<div style="flex:1;min-width:280px;">
+<div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:8px;">📝 脚本 / 提示词模型：</div>
+<div data-model-picker="vc-script" data-picker-label="" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"></div>
+</div>
+<div style="flex:1;min-width:280px;">
+<div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:8px;">🤖 <span data-i18n="vc.model.label">视频模型：</span></div>
+<div data-model-picker="video-create" data-picker-label="" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"></div>
+</div>
+<div>
+<div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;">视频时长</div>
+<select class="dark-select" id="vcDuration">
+<option value="5">5秒</option>
+<option selected="" value="10">10秒</option>
+<option value="15">15秒</option>
+<option value="30">30秒</option>
+</select>
+</div>
+<div>
+<div style="font-size:13px;color:var(--text-secondary);margin-bottom:6px;">视频风格</div>
+<select class="dark-select" id="vcStyle">
+<option value="auto">自动匹配</option>
+<option value="cinematic">电影质感</option>
+<option value="tech-business">科技商务</option>
+<option value="anime">动漫风格</option>
+<option value="realistic">写实风格</option>
+<option value="cartoon">卡通可爱</option>
+</select>
+</div>
+<div style="display:flex;gap:10px;flex-wrap:wrap;">
+<button class="btn btn-primary" id="btnVcGenerate" onclick="vcGenerateVideo()" style="padding:10px 24px;">
+<svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="16"><polygon points="5,3 19,12 5,21"></polygon></svg>
+              生成完整视频
+            </button>
+<button class="btn btn-primary" id="btnVcGenerateStoryboard" onclick="vcGenerateStoryboard()" style="padding:10px 24px;background:linear-gradient(135deg, #8b5cf6, #6366f1);">
+<svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="16"><rect height="14" rx="2" width="20" x="2" y="3"></rect><polygon points="10,7 16,10 10,13"></polygon></svg>
+              生成分段式视频
+            </button>
+</div>
+</div>
+<!-- 热门视频话题提示词 -->
+<div>
+<div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;"><span data-i18n="vc.chip.hint">热门电商/自媒体视频提示词</span> <span data-i18n="vc.chip.subhint" style="font-size:11px;">（点击快速填充）</span></div>
+<div style="display:flex;flex-wrap:wrap;gap:8px;">
+<button class="chip" onclick="vcFillPromptByIndex(0)">📦 开箱测评</button>
+<button class="chip" onclick="vcFillPromptByIndex(1)">🍜 美食探店</button>
+<button class="chip" onclick="vcFillPromptByIndex(2)">💄 美妆试色</button>
+<button class="chip" onclick="vcFillPromptByIndex(3)">🕶️ 型男穿搭</button>
+<button class="chip" onclick="vcFillPromptByIndex(4)">✈️ 旅游 vlog</button>
+<button class="chip" onclick="vcFillPromptByIndex(5)">📱 数码实测</button>
+<button class="chip" onclick="vcFillPromptByIndex(6)">📣 社媒广告</button>
+<button class="chip" onclick="vcFillPromptByIndex(7)">🌿 素人种草</button>
+<button class="chip" onclick="vcFillPromptByIndex(8)">🔴 直播预告</button>
+<button class="chip" onclick="vcFillPromptByIndex(9)">🎉 大促促销</button>
+</div>
+</div>
+<!-- 结果区 -->
+<div id="vcResult" style="display:none;margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+<div id="vcLoadingBox" style="text-align:center;padding:32px;display:none;">
+<div style="display:inline-flex;align-items:center;gap:12px;color:var(--accent-light);">
+<div style="width:24px;height:24px;border:3px solid rgba(99,102,241,0.2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+<span id="vcLoadingText" style="font-size:14px;font-weight:600;">视频生成中...</span>
+</div>
+<div id="vcLoadingHint" style="margin-top:10px;color:var(--text-secondary);font-size:12px;">大型视频模型生成时间约 1-3 分钟，请耐心等待</div>
+</div>
+<div id="vcVideoBox" style="display:none;">
+<video controls="" id="vcVideoPlayer" style="width:100%;max-width:720px;border-radius:12px;background:#000;"></video>
+<div id="vcVideoMeta" style="margin-top:10px;font-size:12px;color:var(--text-secondary);"></div>
+</div>
+<div id="vcErrorBox" style="display:none;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:12px;padding:16px;">
+<div style="display:flex;gap:10px;align-items:flex-start;">
+<svg fill="none" height="20" stroke="#ef4444" stroke-width="2" viewbox="0 0 24 24" width="20"><circle cx="12" cy="12" r="10"></circle><line x1="12" x2="12" y1="8" y2="12"></line><line x1="12" x2="12.01" y1="16" y2="16"></line></svg>
+<div style="flex:1;">
+<div style="font-size:14px;font-weight:600;color:#ef4444;">视频生成失败</div>
+<div id="vcErrorMsg" style="margin-top:6px;font-size:13px;color:var(--text-primary);white-space:pre-wrap;word-break:break-word;"></div>
+<div id="vcErrorHint" style="margin-top:8px;font-size:12px;color:var(--text-secondary);"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- 分段式视频创作区 -->
+<div id="vcStoryboardArea" style="display:none;margin-top:24px;padding-top:20px;border-top:1px solid var(--border);">
+<div style="font-size:14px;font-weight:600;margin-bottom:12px;">🎬 分段式视频 / 分镜脚本</div>
+<div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">AI 会根据提示词生成分镜脚本，你可以编辑后再生成每个片段。</div>
+<div class="script-block" id="vcStoryboardView" style="white-space:pre-wrap;font-size:13px;line-height:1.7;padding:14px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:10px;min-height:120px;display:none;"></div>
+<textarea class="textarea" id="vcStoryboardEdit" placeholder="【分镜1】0-10秒\n画面：...\n文案：...\n\n【分镜2】10-20秒\n画面：...\n文案：..." rows="8" style="display:none;"></textarea>
+<div id="vcStoryboardActions" style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+<button class="btn btn-secondary btn-sm" id="btnVcGenStoryboard" onclick="vcGenerateStoryboardScript()">📝 生成分镜脚本</button>
+<button class="btn btn-outline btn-sm" id="btnVcEditStoryboard" onclick="vcEditStoryboard()" style="display:none;">✏️ 编辑分镜</button>
+<button class="btn btn-primary btn-sm" id="btnVcSaveStoryboard" onclick="vcSaveStoryboard()" style="display:none;">💾 保存分镜</button>
+<button class="btn btn-outline btn-sm" id="btnVcCancelStoryboard" onclick="vcCancelStoryboardEdit()" style="display:none;">取消</button>
+<button class="btn btn-primary btn-sm" id="btnVcGenSegments" onclick="vcGenerateSegments()" style="display:none;background:linear-gradient(135deg, #8b5cf6, #6366f1);">🎬 生成片段</button>
+</div>
+<!-- 分段进度与结果 -->
+<div id="vcSegmentProgress" style="display:none;margin-top:16px;"></div>
+<div id="vcSegmentResults" style="display:none;margin-top:16px;"></div>
+</div>
+</div>
+</section>

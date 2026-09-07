@@ -1,0 +1,208 @@
+[
+  [
+    {
+      "id": "sourcing",
+      "navId": "nav-sourcing",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    }
+  ],
+  [
+    {
+      "id": "hotspot",
+      "navId": "nav-hotspot",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    },
+    {
+      "id": "product",
+      "navId": "nav-product",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    },
+    {
+      "id": "article",
+      "navId": "nav-article",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    },
+    {
+      "id": "video",
+      "navId": "nav-video",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    }
+  ],
+  [
+    {
+      "id": "freeqa",
+      "navId": "nav-freeqa",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    },
+    {
+      "id": "text-studio",
+      "navId": "nav-text-studio",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    },
+    {
+      "id": "image",
+      "navId": "nav-image",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    },
+    {
+      "id": "video-create",
+      "navId": "nav-video-create",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    },
+    {
+      "id": "comment",
+      "navId": "nav-comment",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    },
+    {
+      "id": "smart-reply",
+      "navId": "nav-smart-reply",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    }
+  ],
+  [
+    {
+      "id": "accounts",
+      "navId": "nav-accounts",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": true
+    },
+    {
+      "id": "assets",
+      "navId": "nav-assets",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    },
+    {
+      "id": "ip-stats",
+      "navId": "nav-ip-stats",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": true
+    }
+  ],
+  [
+    {
+      "id": "commerce-platforms",
+      "navId": "nav-commerce-platforms",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    },
+    {
+      "id": "social-platforms",
+      "navId": "nav-social-platforms",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    },
+    {
+      "id": "holidays",
+      "navId": "nav-holidays",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    },
+    {
+      "id": "metrics",
+      "navId": "nav-metrics",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    }
+  ],
+  [
+    {
+      "id": "prompts",
+      "navId": "nav-prompts",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    },
+    {
+      "id": "models",
+      "navId": "nav-models",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    },
+    {
+      "id": "model-shop",
+      "navId": "nav-model-shop",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    }
+  ],
+  [
+    {
+      "id": "demo",
+      "navId": "nav-demo",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    },
+    {
+      "id": "user-center",
+      "navId": "nav-user-center",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": false
+    },
+    {
+      "id": "users",
+      "navId": "nav-users",
+      "title": "",
+      "badge": "",
+      "svgInner": "",
+      "adminOnly": true
+    }
+  ]
+]

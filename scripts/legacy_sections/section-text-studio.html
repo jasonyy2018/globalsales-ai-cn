@@ -1,0 +1,82 @@
+<section class="section" id="section-text-studio">
+<div class="section-header">
+<h2 data-i18n="ts.title">📝 文案创作</h2>
+<p data-i18n="ts.subtitle">输入你的文案主题，AI 生成贴合国内平台调性的中文文案。可用于种草笔记、带货口播、短视频脚本、公众号推文、详情页卖点等。默认使用火山方舟 Coding Plan。</p>
+</div>
+<!-- 提示词输入 -->
+<div class="card" style="padding:20px;margin-bottom:16px;">
+<label data-i18n="ts.prompt.label" for="tsPromptInput" style="font-size:13px;font-weight:500;color:var(--text-secondary);display:block;margin-bottom:6px;">你的文案主题</label>
+<textarea class="textarea" data-i18n-placeholder="ts.prompt.placeholder" id="tsPromptInput" placeholder="例如：为智能猫砂盆写一篇小红书种草笔记；写一段抖音带货口播脚本；为新品测款写 5 条微博文案等..." rows="4" style="width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);font-size:14px;font-family:inherit;resize:vertical;"></textarea>
+<!-- 语音听写的实时预览区。只在录音时出现，停录后清空。 -->
+<div class="voice-interim" id="tsVoiceInterim" style="display:none;"></div>
+<!-- 类型 + 平台 + 按钮 -->
+<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:14px;align-items:center;">
+<div>
+<span data-i18n="ts.type.label" style="font-size:12px;color:var(--text-secondary);">文案类型：</span>
+<select id="tsType" style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text-primary);font-size:13px;">
+<option data-i18n="ts.type.article" value="article">软文推广</option>
+<option data-i18n="ts.type.script" value="script">视频脚本</option>
+<option data-i18n="ts.type.short_form" value="short_form">短平快帖子</option>
+<option data-i18n="ts.type.private" value="private">私域推文</option>
+</select>
+</div>
+<div>
+<span data-i18n="ts.platform.label" style="font-size:12px;color:var(--text-secondary);">目标平台：</span>
+<select id="tsPlatform" style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--text-primary);font-size:13px;">
+<option value="douyin">抖音</option>
+<option value="kuaishou">快手</option>
+<option value="shipinhao">微信视频号</option>
+<option value="xiaohongshu">小红书</option>
+<option value="bilibili">B站</option>
+<option value="wechat">微信公众号</option>
+<option value="toutiao">今日头条</option>
+<option value="zhihu">知乎</option>
+<option value="weibo">微博</option>
+<option value="taobao">淘宝 / 天猫详情页</option>
+</select>
+</div>
+<button class="btn btn-outline btn-sm voice-btn" id="btnTsVoice" onclick="toggleVoiceInput('tsPromptInput','btnTsVoice','tsVoiceInterim')">
+<span class="voice-dot"></span>
+<svg fill="none" height="14" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="14"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" x2="12" y1="19" y2="23"></line><line x1="8" x2="16" y1="23" y2="23"></line></svg>
+<span data-i18n="ts.btn.voice" id="btnTsVoiceLabel">语音输入</span>
+</button>
+<button class="btn btn-outline btn-sm" data-i18n="ts.btn.optimize" id="btnTsOptimize" onclick="tsOptimizePrompt()">AI 优化提示词</button>
+<button class="btn btn-primary" id="btnTsGenerate" onclick="tsGenerateCopy()" style="margin-left:auto;">
+<svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="16"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10"></polygon></svg>
+<span data-i18n="ts.btn.generate">生成文案</span>
+</button>
+</div>
+<div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+<div data-model-picker="text-studio" data-picker-label="文案模型" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"></div>
+</div>
+<!-- 语音输入的说明常驻：用户有权知道音频去了哪、为什么 Firefox 上没这个按钮 -->
+<div data-i18n="ts.voice.hint" style="font-size:11px;color:var(--text-secondary);line-height:1.7;margin-top:10px;">🎙 支持语音输入：点「语音输入」直接口述文案主题，按中文识别。识别由浏览器完成，音频不经过本站服务器。需 Chrome / Edge / Safari。</div>
+<!-- 内置 10 条国内自媒体 / 电商运营提示词 -->
+<div style="margin-top:16px;padding-top:14px;border-top:1px dashed var(--border);">
+<div style="font-size:13px;color:var(--text-secondary);margin-bottom:8px;">
+<span data-i18n="ts.chip.hint">🔥 热门国内电商 / 自媒体运营提示词</span>
+<span data-i18n="ts.chip.subhint" style="font-size:11px;">（点击一键填充）</span>
+</div>
+<div class="prompt-chip-row" id="tsChipRow"></div>
+</div>
+</div>
+<!-- Loading -->
+<div id="tsLoading" style="display:none;text-align:center;padding:32px;">
+<div style="width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px;"></div>
+<p data-i18n="ts.loading" style="color:var(--text-secondary);font-size:13px;">火山方舟正在为你打磨平台本土化文案，5–15 秒...</p>
+</div>
+<!-- 结果 -->
+<div id="tsResult" style="display:none;">
+<div class="card" style="padding:22px;">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap;">
+<div data-i18n="ts.result.title" style="font-size:15px;font-weight:600;">生成结果</div>
+<div style="display:flex;gap:8px;flex-wrap:wrap;">
+<button class="btn btn-outline btn-sm" data-i18n="ts.btn.copy" onclick="tsCopy()">📋 复制全文</button>
+<button class="btn btn-outline btn-sm" data-i18n="ts.btn.export" onclick="tsExport()">📄 导出为 .html</button>
+<button class="btn btn-outline btn-sm" data-i18n="ts.btn.regen" onclick="tsGenerateCopy()">🔄 重新生成</button>
+</div>
+</div>
+<div contenteditable="true" id="tsOutput" onblur="this.style.borderColor='var(--border)'" onfocus="this.style.borderColor='var(--accent)'" spellcheck="false" style="min-height:200px;padding:14px 16px;border:1px solid var(--border);border-radius:10px;background:var(--bg-primary);color:var(--text-primary);font-size:15px;line-height:1.85;outline:none;transition:border-color .2s;"></div>
+</div>
+</div>
+</section>

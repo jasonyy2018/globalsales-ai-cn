@@ -8,6 +8,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
+    success: true,
     authenticated: true,
     user: {
       id: user.id,

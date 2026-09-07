@@ -1,0 +1,38 @@
+<section class="section" id="section-article">
+<div class="section-header">
+<h2 data-i18n="article.title">图文文章生成</h2>
+<p data-i18n="article.subtitle">面向小红书、微信公众号、今日头条、知乎、微博的国内自媒体图文引擎 · 生成后一键跳转至对应平台后台，由你登录发布</p>
+</div>
+<div class="card" style="margin-bottom:24px;">
+<label style="font-size:14px;font-weight:500;display:block;margin-bottom:8px;">文章主题</label>
+<input class="text-input" id="articleTopic" placeholder="输入你想写的文章主题，或从热点发现中选择..." type="text"/>
+<div style="display:flex;gap:12px;align-items:center;margin-top:16px;flex-wrap:wrap;">
+<span style="font-size:13px;color:var(--text-secondary);">目标平台：</span>
+<button class="chip platform-chip active" onclick="selectPlatform('xiaohongshu', this)">小红书</button>
+<button class="chip platform-chip" onclick="selectPlatform('wechat', this)">微信公众号</button>
+<button class="chip platform-chip" onclick="selectPlatform('toutiao', this)">今日头条</button>
+<button class="chip platform-chip" onclick="selectPlatform('zhihu', this)">知乎</button>
+<button class="chip platform-chip" onclick="selectPlatform('weibo', this)">微博</button>
+</div>
+<div style="display:flex;gap:12px;align-items:center;margin-top:16px;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--border);">
+<div data-model-picker="article" data-picker-label="文案模型" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"></div>
+<div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;">
+<button class="btn btn-outline" id="btnGenerateArticleText" onclick="generateArticleText()" title="Phase 2.1：只生成纯文本，供人工审核后再配图">
+<svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="16"><rect height="18" rx="2" width="18" x="3" y="3"></rect><line x1="8" x2="16" y1="8" y2="8"></line><line x1="8" x2="16" y1="12" y2="12"></line><line x1="8" x2="12" y1="16" y2="16"></line></svg>
+              ① 生成纯文本
+            </button>
+<button class="btn btn-primary" id="btnGenerateArticle" onclick="generateArticle()" title="兼容旧流程：文本 + 3 张配图一次生成">
+<svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="16"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10"></polygon></svg>
+              ①+② 一步到位
+            </button>
+</div>
+</div>
+</div>
+<div id="articleResult" style="display:none;">
+<div id="articleLoading" style="text-align:center;padding:40px;">
+<div style="width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>
+<p style="color:var(--text-secondary);">AI正在为你生成文章...</p>
+</div>
+<div id="articlePreview"></div>
+</div>
+</section>

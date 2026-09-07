@@ -1,0 +1,59 @@
+<section class="section" id="section-smart-reply">
+<div class="section-header">
+<h2 data-i18n="reply.title">🤖 棘手评论回复</h2>
+<p data-i18n="reply.subtitle">粘贴棘手评论，AI 自动识别意图并生成高情商回复，覆盖抖音 / 小红书 / 视频号 / 微信公众号 等国内平台调性</p>
+</div>
+<div class="card" style="margin-bottom:20px;">
+<!-- 平台选择 -->
+<div data-i18n="reply.platform.title" style="font-size:14px;font-weight:600;margin-bottom:8px;">📱 选择平台调性</div>
+<div class="platform-select-row">
+<!-- 这四个 id 被 selectReplyPlatform 的 idMap 按名字取，改名要两边一起改 -->
+<button class="platform-btn active" id="platform-dy" onclick="selectReplyPlatform('douyin')">🎵 抖音 · 短平快有梗</button>
+<button class="platform-btn" id="platform-xhs" onclick="selectReplyPlatform('xiaohongshu')">📕 小红书 · 姐妹感有温度</button>
+<button class="platform-btn" id="platform-sph" onclick="selectReplyPlatform('shipinhao')">🎬 视频号 · 稳重偏私域</button>
+<button class="platform-btn" id="platform-gzh" onclick="selectReplyPlatform('gongzhonghao')">📰 公众号 · 克制专业</button>
+</div>
+<!-- 评论输入 -->
+<div data-i18n="reply.input.title" style="font-size:14px;font-weight:600;margin-bottom:8px;margin-top:16px;">📝 粘贴棘手评论</div>
+<div class="smart-reply-input-area">
+<textarea id="smartReplyInput" oninput="updateSmartReplyCharCount()" placeholder='粘贴一条棘手评论。例如：
+
+"浪费我八分钟。标题党，全是水。"
+
+"小白一个，到底哪个更推荐新手先上手？"
+
+"私我领【免费诊断】📞 名额有限🔥🔥🔥"'></textarea>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+<span id="smartReplyCharCount" style="font-size:11px;color:var(--text-secondary);">0 / 500 字</span>
+<button class="btn btn-outline btn-sm" onclick="clearSmartReplyInput()" style="font-size:11px;">清空</button>
+</div>
+</div>
+<!-- 回复条数 + 分析按钮 -->
+<div style="margin-top:12px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+<select id="replyCount" onchange="updateReplyCount()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);font-size:13px;width:auto;min-width:80px;">
+<option value="2">生成 2 条</option>
+<option selected="" value="3">生成 3 条</option>
+<option value="5">生成 5 条</option>
+</select>
+<button class="btn btn-primary" id="btnSmartReply" onclick="classifyAndReply()" style="justify-content:center;">
+<svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="16"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12c0 1.6.4 3.1 1.1 4.4L2 22l5.6-1.1c1.3.7 2.8 1.1 4.4 1.1z"></path></svg>
+<span data-i18n="reply.btn.generate">生成回复</span>
+</button>
+<div data-model-picker="reply" data-picker-label="文案模型" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"></div>
+</div>
+<!-- Loading -->
+<div class="loading-state" id="smartReplyLoading" style="display:none;margin-top:16px;">
+<div class="loading-spinner"></div>
+<div class="loading-text">AI 正在识别意图并撰写高情商回复，大约 5-10 秒…</div>
+</div>
+<!-- 意图分类结果 -->
+<div id="intentResultArea" style="display:none;"></div>
+<!-- 回复卡片 -->
+<div class="reply-cards-grid" id="replyCardsGrid"></div>
+<!-- 10个棘手评论示例 -->
+<div style="margin-top:28px;">
+<div style="font-size:14px;font-weight:600;margin-bottom:10px;">📋 点击下方任意棘手评论即可加载到输入框</div>
+<div class="hot-comment-grid" id="trickyCommentGrid"></div>
+</div>
+</div>
+</section>

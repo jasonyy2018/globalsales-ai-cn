@@ -1,0 +1,98 @@
+<section class="section" id="section-metrics">
+<div class="section-header">
+<h2 data-i18n="met.title">📊 电商运营指标</h2>
+<p data-i18n="met.subtitle">国内电商运营核心指标 · 流量层 / 转化层 / 回报层 / 留存层 · 国内平台基准与误用提醒</p>
+</div>
+<div class="card" style="padding:16px;margin-bottom:20px;border-left:3px solid var(--accent);">
+<div data-i18n="met.intro" style="font-size:13px;color:var(--text-secondary);line-height:1.9;">电商运营不只是「卖货」，是「算账」。投了 1 万元千川，必须回答这 1 万带回多少 GMV、多少净利。口径不统一，账永远算不清 —— 所以下面 8 个指标是结果，「统一口径」才是第一性原理。</div>
+</div>
+<div style="overflow-x:auto;">
+<table class="ref-table" id="metricsTable">
+<thead>
+<tr>
+<th data-i18n="met.col.layer">层级</th>
+<th data-i18n="met.col.name">指标</th>
+<th data-i18n="met.col.abbr">缩写</th>
+<th data-i18n="met.col.bench">国内参考基准</th>
+<th data-i18n="met.col.good">优秀阈值</th>
+<th data-i18n="met.col.watch">盯什么</th>
+<th data-i18n="met.col.trap">误用提醒</th>
+</tr>
+</thead>
+<tbody id="metricsBody"></tbody>
+</table>
+</div>
+<!-- 口径统一表 -->
+<div class="section-header" style="margin-top:32px;">
+<h2 data-i18n="met.caliber.title" style="font-size:18px;">📏 口径统一表（否则会乱）</h2>
+</div>
+<div style="overflow-x:auto;">
+<table class="ref-table" id="caliberTable">
+<thead>
+<tr>
+<th data-i18n="met.caliber.col.dim">维度</th>
+<th data-i18n="met.caliber.col.rule">统一口径</th>
+<th data-i18n="met.caliber.col.wrong">反例（常犯）</th>
+</tr>
+</thead>
+<tbody id="caliberBody"></tbody>
+</table>
+</div>
+<!-- 公式与 CVR 三算法 -->
+<div class="section-header" style="margin-top:32px;">
+<h2 data-i18n="met.formula.title" style="font-size:18px;">🧮 CTR / CVR 公式与三种 CVR 算法</h2>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;">
+<div class="card" style="padding:16px;">
+<div style="font-weight:700;margin-bottom:8px;">CTR (Click-Through Rate)</div>
+<div style="font-family:Consolas,monospace;font-size:13px;background:var(--bg-tertiary);padding:10px;border-radius:6px;margin-bottom:10px;">CTR = 点击数 / 曝光数 × 100%</div>
+<div data-i18n="met.ctr.note" style="font-size:12px;color:var(--text-secondary);line-height:1.8;">分母陷阱：「展示」= 一人看 3 次算 3 次，「触达」= 算 1 次，平台后台基本都用展示。抖音以 3 秒完播作为有效观看口径，小红书划过即计曝光。CTR 不是「广告好不好」，是「前 3 秒有没有抓住用户」。</div>
+</div>
+<div class="card" style="padding:16px;">
+<div style="font-weight:700;margin-bottom:8px;">CVR (Conversion Rate)</div>
+<div style="font-family:Consolas,monospace;font-size:13px;background:var(--bg-tertiary);padding:10px;border-radius:6px;margin-bottom:10px;">CVR = 支付成功订单数 / 商品访客数(UV) × 100%</div>
+<div data-i18n="met.cvr.note" style="font-size:12px;color:var(--text-secondary);line-height:1.8;">分子必须是「支付成功」而非「加购」或「下单」：国内从下单到支付仍有 20–40% 流失（凑单取消、比价流失、超时未付），用加购算会严重虚高。分母平台后台默认用商品访客数（UV），自建报表要保持同一口径。</div>
+</div>
+<div class="card" style="padding:16px;">
+<div style="font-weight:700;margin-bottom:8px;">GMV 拆解</div>
+<div style="font-family:Consolas,monospace;font-size:13px;background:var(--bg-tertiary);padding:10px;border-radius:6px;margin-bottom:10px;">GMV = 曝光 × CTR × CVR × AOV</div>
+<div data-i18n="met.gmv.note" style="font-size:12px;color:var(--text-secondary);line-height:1.8;">投流优化不是把 CTR 拉满，而是在 AOV 固定的前提下找 CTR × CVR 乘积最大。单独看任何一个都会骗人。</div>
+</div>
+</div>
+<div data-i18n="met.cvr3.title" style="font-size:13px;color:var(--text-secondary);margin:20px 0 8px;font-weight:600;">同一个站点（1000 访问 / 80 加购 / 30 下单 / 12 支付成功），三种算法差 6.7 倍：</div>
+<div style="overflow-x:auto;">
+<table class="ref-table" id="cvr3Table">
+<thead>
+<tr>
+<th data-i18n="met.cvr3.col.ver">算法版本</th>
+<th data-i18n="met.cvr3.col.formula">公式</th>
+<th data-i18n="met.cvr3.col.result">结果</th>
+<th data-i18n="met.cvr3.col.use">用途</th>
+</tr>
+</thead>
+<tbody id="cvr3Body"></tbody>
+</table>
+</div>
+<div data-i18n="met.cvr3.warn" style="font-size:13px;color:#f59e0b;margin-top:12px;font-weight:600;">⚠️ 国内电商后台的「转化率」默认指支付转化率（成交率）。拿 8% 的加购率报给老板，是把数据当装饰品。</div>
+<!-- 实战案例 -->
+<div class="section-header" style="margin-top:32px;">
+<h2 data-i18n="met.case.title" style="font-size:18px;">💡 实战案例</h2>
+</div>
+<div style="overflow-x:auto;">
+<table class="ref-table" id="metricCasesTable">
+<thead>
+<tr>
+<th data-i18n="met.case.col.scene">场景</th>
+<th data-i18n="met.case.col.pain">痛点</th>
+<th data-i18n="met.case.col.wrong">错误做法</th>
+<th data-i18n="met.case.col.right">正确做法</th>
+<th data-i18n="met.case.col.result">结果</th>
+</tr>
+</thead>
+<tbody id="metricCasesBody"></tbody>
+</table>
+</div>
+<div class="card" style="padding:16px;margin-top:20px;border-left:3px solid var(--accent);">
+<div data-i18n="met.summary" style="font-size:13px;line-height:1.9;">一句话总结：CTR 看「抓眼」，CVR 看「抓心」，GMV 看「抓钱」。三个数一起盯，才不会被单点优化骗了。</div>
+</div>
+</section>

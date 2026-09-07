@@ -1,0 +1,121 @@
+  :root {
+    --bg-primary: #020617;    /* 页面最底 */
+    --bg-secondary: #0f172a;  /* 卡片 */
+    --bg-tertiary: #1e293b;   /* 抬起/输入框/hover 起点 */
+    --bg-hover: #334155;      /* 交互态 */
+    --grad-primary: linear-gradient(to right, #4f46e5, #9333ea);
+    --grad-primary-hover: linear-gradient(to right, #4338ca, #7e22ce);
+    --grad-accent: linear-gradient(to right, #e11d48, #db2777);
+    --grad-accent-hover: linear-gradient(to right, #be123c, #be185d);
+    --grad-success: linear-gradient(to right, #059669, #0d9488);
+    --grad-info: linear-gradient(to right, #0891b2, #2563eb);
+  :root {
+    background: var(--bg-primary);
+  ::-webkit-scrollbar-thumb { background: var(--bg-tertiary); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--bg-hover); }
+  .sidebar {
+     .section 默认 display:none，只有 .active 那个显示。
+  .section.active {
+     必须压过 .section.active，否则普通用户一旦以任何方式切到这几页
+  .nav-item {
+  .nav-item:hover { background: linear-gradient(90deg, rgba(79,70,229,0.16), rgba(147,51,234,0.04)); color: var(--text-primary); }
+  .nav-item.active {
+  .nav-divider { height: 1px; background: var(--border-strong); margin: 8px 20px; flex-shrink: 0; }
+  .nav-icon { width: 20px; height: 20px; flex-shrink: 0; }
+       有 nav-divider 挡着，视觉上本来就不挨着；
+  .nav-item .nav-icon { opacity: 0.85; transition: opacity var(--transition); }
+  .nav-item:hover .nav-icon,
+  .nav-item.active .nav-icon { opacity: 1; }
+  #nav-sourcing           .nav-icon { color: #fbbf24; }
+  #nav-hotspot            .nav-icon { color: #fb923c; }
+  #nav-product            .nav-icon { color: #38bdf8; }
+  #nav-article            .nav-icon { color: #34d399; }
+  #nav-video              .nav-icon { color: #a78bfa; }
+  #nav-freeqa             .nav-icon { color: #22d3ee; }
+  #nav-text-studio        .nav-icon { color: #a3e635; }
+  #nav-image              .nav-icon { color: #f472b6; }
+  #nav-video-create       .nav-icon { color: #818cf8; }
+  #nav-comment            .nav-icon { color: #2dd4bf; }
+  #nav-smart-reply        .nav-icon { color: #fb7185; }
+  #nav-accounts           .nav-icon { color: #c084fc; }
+  #nav-assets             .nav-icon { color: #facc15; }
+  #nav-ip-stats           .nav-icon { color: #e879f9; }
+  #nav-commerce-platforms .nav-icon { color: #f59e0b; }
+  #nav-social-platforms   .nav-icon { color: #4ade80; }
+  #nav-holidays           .nav-icon { color: #f87171; }
+  #nav-metrics            .nav-icon { color: #7dd3fc; }
+  #nav-prompts            .nav-icon { color: #c4b5fd; }
+  #nav-models             .nav-icon { color: #60a5fa; }
+  #nav-model-shop         .nav-icon { color: #fdba74; }
+  #nav-demo               .nav-icon { color: #f0abfc; }
+  #nav-user-center        .nav-icon { color: #93c5fd; }
+  #nav-users              .nav-icon { color: #fca5a5; }
+  .nav-badge {
+    background: var(--bg-primary); border: 1px solid var(--border);
+    background: var(--bg-primary); border: 1px solid var(--border);
+  .btn-primary { background: var(--grad-primary); color: #fff; box-shadow: var(--shadow-md); }
+  .btn-primary:hover { background: var(--grad-primary-hover); transform: translateY(-1px); box-shadow: var(--glow-primary); }
+  .btn-accent { background: var(--grad-accent); color: #fff; box-shadow: var(--shadow-md); }
+  .btn-accent:hover { background: var(--grad-accent-hover); transform: translateY(-1px); box-shadow: var(--glow-accent); }
+  .btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); }
+  .btn-secondary:hover { background: var(--bg-hover); }
+  .btn-save { background: var(--grad-success); color: white; box-shadow: var(--shadow-md); }
+  .textarea { width: 100%; padding: 12px 14px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px; line-height: 1.6; resize: vertical; font-family: inherit; transition: border-color .2s, box-shadow .2s; box-sizing: border-box; }
+  .input { width: 100%; padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px; font-family: inherit; transition: border-color .2s, box-shadow .2s; box-sizing: border-box; }
+  .input[readonly] { opacity: 0.7; cursor: not-allowed; background: var(--bg-secondary); }
+  .image-upload-area { border: 2px dashed var(--border); border-radius: 12px; padding: 28px; text-align: center; cursor: pointer; transition: all .25s; background: var(--bg-tertiary); position: relative; overflow: hidden; }
+  .image-model-select { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary); font-size: 14px; cursor: pointer; appearance: none; -webkit-appearance: none; background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpolyline points='6,9 12,15 18,9'/%3E%3C/svg%3E\"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+  .image-result-card { background: var(--bg-tertiary); border-radius: 12px; overflow: hidden; border: 1px solid var(--border); transition: all .25s; position: relative; }
+  .image-result-card .img-actions button { flex: 1; padding: 5px 8px; font-size: 11px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-secondary); cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .comment-input-area textarea { width: 100%; min-height: 120px; resize: vertical; background: var(--bg-tertiary); border: 2px solid var(--border); border-radius: 12px; padding: 14px 16px; color: var(--text-primary); font-size: 14px; font-family: inherit; line-height: 1.7; transition: border-color .2s; }
+  .derive-btn-row .num-select { width: 80px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-primary); font-size: 14px; font-family: inherit; }
+  .derived-comment-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 16px; position: relative; transition: all .2s; }
+  .derived-comment-card .dc-actions button { flex: 1; padding: 5px 8px; font-size: 11px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-secondary); cursor: pointer; transition: all .2s; }
+  .hot-comment-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 10px; padding: 14px; cursor: pointer; transition: all .2s; position: relative; }
+  .hot-comment-card:hover { border-color: var(--accent-light); background: var(--bg-tertiary); transform: translateY(-1px); }
+  .platform-select-row .platform-btn { padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-secondary); font-size: 13px; cursor: pointer; transition: all .2s; font-family: inherit; }
+  .platform-select-row .platform-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .smart-reply-input-area textarea { width: 100%; min-height: 100px; resize: vertical; background: var(--bg-tertiary); border: 2px solid var(--border); border-radius: 12px; padding: 14px 16px; color: var(--text-primary); font-size: 14px; font-family: inherit; line-height: 1.7; transition: border-color .2s; }
+  .reply-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 12px; padding: 16px; position: relative; transition: all .2s; }
+  .reply-card .rc-actions button { flex: 1; padding: 6px 10px; font-size: 11px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-secondary); cursor: pointer; transition: all .2s; }
+  .asset-tab { padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-secondary); font-size: 13px; cursor: pointer; transition: all .2s; white-space: nowrap; }
+  .asset-tab.active { background: var(--grad-primary); color: #fff; border-color: transparent; font-weight: 600; }
+  .asset-card { background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border); padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; transition: all .2s; }
+  .asset-card-actions button { padding: 4px 10px; font-size: 11px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-secondary); cursor: pointer; transition: all .2s; display: flex; align-items: center; gap: 3px; }
+    background: var(--bg-tertiary); color: var(--text-secondary);
+  .chip:hover, .chip.active { background: var(--accent-glow); color: var(--accent-light); border-color: var(--accent); }
+  .dark-select { padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary); font-size: 13px; font-family: inherit; outline: none; }
+  .dark-select option { background: var(--bg-secondary); color: var(--text-primary); }
+    height: 6px; border-radius: 3px; background: var(--bg-tertiary);
+  .editor-toolbar { display: flex; gap: 4px; padding: 8px; border-bottom: 1px solid var(--border); background: var(--bg-primary); border-radius: 10px 10px 0 0; flex-wrap: wrap; }
+  .editor-tool:hover { background: var(--bg-tertiary); color: var(--text-primary); }
+  .editor-content { min-height: 400px; padding: 20px; background: var(--bg-primary); border-radius: 0 0 10px 10px; outline: none; line-height: 1.8; font-size: 15px; color: var(--text-primary); }
+  .article-body blockquote { border-left: 3px solid var(--accent); padding: 8px 16px; color: var(--text-secondary); margin: 16px 0; background: var(--bg-secondary); border-radius: 0 6px 6px 0; }
+    background: var(--bg-secondary); border: 1px solid var(--border-strong);
+    background: var(--bg-secondary); border: 1px solid var(--accent);
+    overflow: hidden; min-height: 400px; background: var(--bg-secondary);
+    background: linear-gradient(90deg, var(--bg-tertiary) 25%, #475569 37%, var(--bg-tertiary) 63%);
+    background: var(--bg-primary); border: 1px solid var(--border);
+    background: var(--bg-primary); color: var(--text-primary);
+    background: var(--bg-primary); border: 1px solid var(--border); border-radius: 12px;
+  .acct-stat { text-align: center; padding: 8px 4px; background: var(--bg-secondary); border-radius: 8px; }
+    border-radius: 6px; border: 1px solid var(--border); background: var(--bg-secondary);
+  .asset-img-no-preview { margin-top: 10px; padding: 20px; text-align: center; color: var(--text-secondary); background: var(--bg-primary); border-radius: 8px; font-size: 13px; }
+  .asset-text-preview { margin-top: 10px; padding: 10px 12px; background: var(--bg-primary); border-radius: 8px; font-size: 12px; color: var(--text-secondary); line-height: 1.6; white-space: pre-wrap; max-height: 120px; overflow: hidden; }
+    background: var(--bg-secondary); color: var(--text-primary); font-size: 12px;
+  .asset-thumb { position: relative; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; transition: all .2s; cursor: pointer; }
+  .asset-thumb-img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; display: block; background: var(--bg-tertiary); }
+  .asset-thumb-actions button { flex: 1; padding: 5px 0; font-size: 11px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-tertiary); color: var(--text-secondary); cursor: pointer; transition: all .2s; }
+    background: var(--bg-secondary); color: var(--text-secondary); font-size: 12px; transition: all 0.2s;
+  .bind-step.active { background: var(--accent); color: #fff; }
+    background: var(--bg-secondary); cursor: pointer; text-align: center; transition: all 0.2s;
+    width: 100%; padding: 10px 14px; background: var(--bg-primary); border: 1px solid var(--border);
+    background: var(--bg-secondary); border-radius: 10px; padding: 16px; text-align: center;
+    width: 36px; height: 36px; border-radius: 50%; background: var(--bg-tertiary);
+    flex: 1; padding: 8px 12px; background: var(--bg-primary); border: 1px solid var(--border);
+    .sidebar {
+    .nav-item { padding: 10px 12px !important; font-size: 13px !important; }
+    background: var(--bg-tertiary); color: var(--text-secondary);
+    background: var(--bg-tertiary); color: var(--text-secondary);
+    font-size: 11px; font-weight: 600; background: var(--bg-tertiary); color: var(--text-secondary);
+    background: var(--bg-primary); border: 1px solid var(--border); border-radius: 10px;

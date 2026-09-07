@@ -1,0 +1,84 @@
+<section class="section" id="section-models">
+<div class="section-header">
+<h2 data-i18n="models.title">🤖 大模型配置</h2>
+<p data-i18n="models.subtitle">展示当前平台接入的所有大模型及其配置信息，支持查看详情和修改配置</p>
+<button class="btn btn-primary" onclick="openAddModel()" style="margin-top:12px;">
+<svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="16"><line x1="12" x2="12" y1="5" y2="19"></line><line x1="5" x2="19" y1="12" y2="12"></line></svg>
+<span data-i18n="models.btn.add">添加模型</span>
+</button>
+</div>
+<div id="modelList" style="display:flex;flex-direction:column;gap:16px;"></div>
+<div class="empty-state" id="modelEmpty" style="display:none;">
+<div class="empty-icon">🤖</div>
+<p style="font-size:16px;font-weight:500;margin-bottom:4px;">暂无模型配置</p>
+<p style="font-size:13px;">请检查系统配置</p>
+</div>
+<!-- 添加/编辑 复用弹窗 -->
+<div id="modelEditModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;overflow-y:auto;">
+<div style="background:var(--bg-secondary);border-radius:16px;padding:24px;width:92%;max-width:640px;box-shadow:0 20px 60px rgba(0,0,0,0.5);margin:24px auto;">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+<h3 data-i18n="models.modal.title_edit" id="modelEditTitle" style="font-size:18px;font-weight:600;">编辑模型配置</h3>
+<button onclick="closeModelEdit()" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:20px;padding:4px 8px;">✕</button>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+<div>
+<label data-i18n="models.f.name" style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">模型名称</label>
+<input class="input" id="modelEditName" placeholder="e.g. OpenAI GPT-4o"/>
+</div>
+<div>
+<label data-i18n="models.f.provider" style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">厂商 / Provider</label>
+<input class="input" id="modelEditProvider" placeholder="e.g. OpenAI / Anthropic / Volcano"/>
+</div>
+<div>
+<label data-i18n="models.f.type" style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">能力类型</label>
+<select class="input" id="modelEditType">
+<option value="text">text · 文本</option>
+<option value="image">image · 图片</option>
+<option value="video">video · 视频</option>
+</select>
+</div>
+<div>
+<label data-i18n="models.f.protocol" style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">协议类型</label>
+<select class="input" id="modelEditProtocol">
+<option value="OpenAI 兼容协议">OpenAI 兼容协议</option>
+<option value="Anthropic Messages API">Anthropic Messages API</option>
+<option value="MiniMax 原生协议">MiniMax 原生协议</option>
+<option value="腾讯混元 API">腾讯混元 API</option>
+<option value="AggregateAPI 异步任务">AggregateAPI 异步任务</option>
+</select>
+</div>
+<div style="grid-column:1 / -1;">
+<label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">Base URL</label>
+<input class="input" id="modelEditBaseUrl" placeholder="https://api.example.com/v1/chat/completions"/>
+</div>
+<div>
+<label data-i18n="models.f.modelslug" style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">模型 slug（API 请求里的 model 字段）</label>
+<input class="input" id="modelEditModel" placeholder="e.g. gpt-4o / claude-opus-4-8 / ark-code-latest"/>
+</div>
+<div>
+<label data-i18n="models.f.status" style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">状态</label>
+<select class="input" id="modelEditStatus">
+<option value="active">active · 启用</option>
+<option value="disabled">disabled · 停用</option>
+</select>
+</div>
+<div style="grid-column:1 / -1;">
+<label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">API Key</label>
+<div style="display:flex;gap:8px;">
+<input class="input" id="modelEditApiKey" placeholder="sk-..." style="flex:1;" type="password"/>
+<button class="btn btn-outline btn-sm" id="toggleKeyBtn" onclick="toggleApiKeyVisibility()" style="white-space:nowrap;">👁 显示</button>
+</div>
+</div>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:20px;">
+<span data-i18n="models.modal.hint" style="font-size:11px;color:var(--text-secondary);">保存后立即写回 index.html 与 server.py，并即时生效</span>
+<div style="display:flex;gap:8px;align-items:center;">
+<span id="modelTestResult" style="font-size:12px;margin-right:4px;"></span>
+<button class="btn btn-outline btn-sm" data-i18n="models.modal.test" id="btnTestModel" onclick="testModelConnection()">🔌 测试连接</button>
+<button class="btn btn-outline btn-sm" data-i18n="common.btn.cancel" onclick="closeModelEdit()">取消</button>
+<button class="btn btn-primary btn-sm" data-i18n="common.btn.save" onclick="saveModelEdit()">💾 保存</button>
+</div>
+</div>
+</div>
+</div>
+</section>

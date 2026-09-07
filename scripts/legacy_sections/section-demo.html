@@ -1,0 +1,16 @@
+<section class="section" id="section-demo">
+<div class="section-header">
+<h2 data-i18n="demo.title">🎬 操作演示</h2>
+<p data-i18n="demo.subtitle">完整操作流程视频演示 · 支持拖动进度条、倍速与全屏</p>
+</div>
+<div class="card" style="padding:16px;max-width:1000px;">
+<video controls="" id="demoVideo" playsinline="" preload="none" style="width:100%;border-radius:10px;background:#000;display:block;aspect-ratio:16/9;">
+<span data-i18n="demo.unsupported">当前浏览器不支持内嵌视频播放，请下载后观看。</span>
+</video>
+<div id="demoError" style="display:none;margin-top:12px;padding:12px 14px;border-radius:8px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);font-size:13px;line-height:1.7;">
+<span data-i18n="demo.error">演示视频加载失败。可能是服务器上没有 demo.mp4（部署时被排除了），或网络中断。</span>
+<a data-i18n="demo.download" download="" href="/demo.mp4" style="color:var(--accent);margin-left:6px;">直接下载</a>
+</div>
+<div data-i18n="demo.hint" style="margin-top:12px;font-size:12px;color:var(--text-secondary);line-height:1.7;">视频分片加载（边下边播），拖动进度条会自动请求对应片段，无需等待整段下载完成。</div>
+</div>
+</section>

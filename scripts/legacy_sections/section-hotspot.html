@@ -1,0 +1,62 @@
+<section class="section" id="section-hotspot">
+<div class="section-header">
+<h2 data-i18n="hotspot.title">热点话题发现</h2>
+<p data-i18n="hotspot.subtitle">实时追踪抖音 / 小红书 / 视频号 / B站 / 微博 等国内主流自媒体与电商平台热点，围绕品牌方向生成图文与视频</p>
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:12px;">
+<div style="display:flex;align-items:center;gap:8px;">
+<span style="font-size:12px;color:var(--text-secondary);">最后更新：</span>
+<span id="update-time" style="font-size:13px;font-weight:500;">刚刚</span>
+</div>
+<button class="btn btn-outline btn-sm" onclick="refreshHotspots()">
+<svg fill="none" height="14" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="14"><polyline points="23,4 23,10 17,10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            全网刷新
+          </button>
+</div>
+</div>
+<div style="margin-bottom:24px;">
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+<span data-i18n="hotspot.source.label" style="font-size:12px;color:var(--text-secondary);">搜索源：</span>
+<button class="chip source-chip" data-i18n="hotspot.source.cn" data-source="cn" onclick="switchSearchSource('cn', this)">🔍 全网搜索（Bing/百度）</button>
+<button class="chip source-chip active" data-i18n="hotspot.source.news" data-source="news" onclick="switchSearchSource('news', this)">📰 资讯聚合（AI 情报）</button>
+<div data-model-picker="hotspot" data-picker-label="AI 情报模型" style="display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap;"></div>
+</div>
+<div class="search-wrapper" style="margin-bottom:16px;">
+<svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" x2="16.65" y1="21" y2="16.65"></line></svg>
+<input class="search-input" data-i18n-placeholder="hotspot.search.placeholder.news" id="searchInput" onkeydown="if(event.key==='Enter')searchWebHotspots()" placeholder="输入关键词，AI 聚合国内电商 / 自媒体热点（如：直播带货、抖音新规）..." type="text"/>
+</div>
+<!-- 内置领域关键词：一排 10 个，全部面向国内电商 + 国内自媒体运营（见 HOTSPOT_KEYWORDS） -->
+<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+<span data-i18n="hotspot.kw.hint" style="font-size:12px;color:var(--text-secondary);flex-shrink:0;">🔥 领域关键词（点击直接搜）：</span>
+<span id="hotspotKwChips" style="display:flex;gap:6px;flex-wrap:wrap;"></span>
+</div>
+<div id="categoryFilters" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+<button class="chip active" onclick="filterByCategory('all', this)">全部热点</button>
+<button class="chip" onclick="filterByCategory('ai', this)">AI 技术</button>
+<button class="chip" onclick="filterByCategory('short-video', this)">短视频</button>
+<button class="chip" onclick="filterByCategory('content', this)">内容创作</button>
+<button class="chip" onclick="filterByCategory('platform', this)">平台动态</button>
+<button class="chip" onclick="filterByCategory('trend', this)">行业趋势</button>
+<button class="chip" onclick="filterByCategory('monetize', this)">变现运营</button>
+<button class="btn btn-primary btn-sm" id="btnSearchWeb" onclick="searchWebHotspots()" style="margin-left:auto;">
+<svg fill="none" height="14" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="14"><circle cx="11" cy="11" r="8"></circle><line x1="21" x2="16.65" y1="21" y2="16.65"></line></svg>
+            全网搜索
+          </button>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">
+<div class="card" style="padding:16px;"><div class="stat-value" id="statTotal" style="color:var(--accent-light);">0</div><div class="stat-label">今日热点数</div></div>
+<div class="card" style="padding:16px;"><div class="stat-value" id="statMaxHot" style="color:#22c55e;">0</div><div class="stat-label">最高热度值</div></div>
+<div class="card" style="padding:16px;"><div class="stat-value" id="statMatched" style="color:#f97316;">0</div><div class="stat-label" title="=当前视图中属于 AI技术+短视频+内容创作 三类热点的数量，代表与你自媒体创作方向最相关的话题">🎯 匹配我的关注</div></div>
+<div class="card" style="padding:16px;"><div class="stat-value" id="statGenerated" style="color:#eab308;">0</div><div class="stat-label">已生成文章</div></div>
+</div>
+<div class="topic-grid" id="topicGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:16px;"></div>
+<div id="topicLoading" style="display:none;text-align:center;padding:60px 20px;">
+<div style="width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>
+<p id="loadingText" style="color:var(--text-secondary);">正在全网搜索热点话题...</p>
+</div>
+<div id="topicEmpty" style="display:none;text-align:center;padding:60px 20px;">
+<svg fill="none" height="64" stroke="var(--text-secondary)" stroke-width="1.5" style="margin:0 auto 16px;" viewbox="0 0 24 24" width="64"><circle cx="11" cy="11" r="8"></circle><line x1="21" x2="16.65" y1="21" y2="16.65"></line></svg>
+<p style="color:var(--text-secondary);font-size:15px;">没有找到匹配的热点话题</p>
+<p style="color:var(--text-secondary);font-size:13px;margin-top:4px;">换个关键词试试全网搜索</p>
+</div>
+</section>

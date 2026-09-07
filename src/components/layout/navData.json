@@ -1,0 +1,232 @@
+[
+  [
+    {
+      "id": "sourcing",
+      "navId": "nav-sourcing",
+      "title": "选品",
+      "badge": "AI",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><path d=\"M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z\"></path></svg>",
+      "adminOnly": false
+    }
+  ],
+  [
+    {
+      "id": "hotspot",
+      "navId": "nav-hotspot",
+      "title": "热点发现",
+      "badge": "实时",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><path d=\"M12 2L2 22h20L12 2z\"></path><circle cx=\"12\" cy=\"20\" r=\"2\"></circle></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "product",
+      "navId": "nav-product",
+      "title": "商品情报抓取",
+      "badge": "URL",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><path d=\"M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z\"></path><line x1=\"3\" x2=\"21\" y1=\"6\" y2=\"6\"></line><path d=\"M16 10a4 4 0 0 1-8 0\"></path></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "article",
+      "navId": "nav-article",
+      "title": "图文生成",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><rect height=\"18\" rx=\"2\" width=\"18\" x=\"3\" y=\"3\"></rect><line x1=\"8\" x2=\"16\" y1=\"8\" y2=\"8\"></line><line x1=\"8\" x2=\"16\" y1=\"12\" y2=\"12\"></line><line x1=\"8\" x2=\"12\" y1=\"16\" y2=\"16\"></line></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "video",
+      "navId": "nav-video",
+      "title": "视频生成",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><polygon points=\"5,3 19,12 5,21\"></polygon></svg>",
+      "adminOnly": false
+    }
+  ],
+  [
+    {
+      "id": "freeqa",
+      "navId": "nav-freeqa",
+      "title": "自由问答",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"></path></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "text-studio",
+      "navId": "nav-text-studio",
+      "title": "文案创作",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><path d=\"M4 6h16\"></path><path d=\"M4 12h16\"></path><path d=\"M4 18h10\"></path><path d=\"M18 16l3 3-3 3\"></path></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "image",
+      "navId": "nav-image",
+      "title": "图片创作",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><rect height=\"18\" rx=\"2\" width=\"18\" x=\"3\" y=\"3\"></rect><circle cx=\"8.5\" cy=\"8.5\" r=\"1.5\"></circle><polyline points=\"21,15 16,10 5,21\"></polyline></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "video-create",
+      "navId": "nav-video-create",
+      "title": "视频创作",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><rect height=\"12\" rx=\"2\" width=\"14\" x=\"2\" y=\"6\"></rect><polyline points=\"22,8 16,12 22,16 22,8\"></polyline></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "comment",
+      "navId": "nav-comment",
+      "title": "热门评论衍生",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"></path><polyline points=\"8,9 16,9\"></polyline><polyline points=\"8,13 14,13\"></polyline></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "smart-reply",
+      "navId": "nav-smart-reply",
+      "title": "棘手评论回复",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><path d=\"M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12c0 1.6.4 3.1 1.1 4.4L2 22l5.6-1.1c1.3.7 2.8 1.1 4.4 1.1z\"></path><polyline points=\"8,9 16,9\"></polyline><polyline points=\"8,13 14,13\"></polyline></svg>",
+      "adminOnly": false
+    }
+  ],
+  [
+    {
+      "id": "accounts",
+      "navId": "nav-accounts",
+      "title": "账号管理",
+      "badge": "0",
+      "badgeId": "nav-account-badge",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><path d=\"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2\"></path><circle cx=\"9\" cy=\"7\" r=\"4\"></circle><path d=\"M23 21v-2a4 4 0 0 0-3-3.87\"></path><path d=\"M16 3.13a4 4 0 0 1 0 7.75\"></path></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "assets",
+      "navId": "nav-assets",
+      "title": "自媒体资产",
+      "badge": "0",
+      "badgeId": "nav-assets-badge",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><path d=\"M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z\"></path><line x1=\"12\" x2=\"12\" y1=\"11\" y2=\"17\"></line><line x1=\"9\" x2=\"15\" y1=\"14\" y2=\"14\"></line></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "ip-stats",
+      "navId": "nav-ip-stats",
+      "title": "访客IP统计",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><rect height=\"8\" rx=\"2\" width=\"20\" x=\"2\" y=\"2\"></rect><rect height=\"8\" rx=\"2\" width=\"20\" x=\"2\" y=\"14\"></rect><circle cx=\"6\" cy=\"6\" r=\"1\"></circle><circle cx=\"10\" cy=\"18\" r=\"1\"></circle></svg>",
+      "adminOnly": false
+    }
+  ],
+  [
+    {
+      "id": "commerce-platforms",
+      "navId": "nav-commerce-platforms",
+      "title": "主流电商平台",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><path d=\"M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z\"></path><line x1=\"3\" x2=\"21\" y1=\"6\" y2=\"6\"></line><path d=\"M16 10a4 4 0 0 1-8 0\"></path></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "social-platforms",
+      "navId": "nav-social-platforms",
+      "title": "主流社媒平台",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><line x1=\"2\" x2=\"22\" y1=\"12\" y2=\"12\"></line><path d=\"M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z\"></path></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "holidays",
+      "navId": "nav-holidays",
+      "title": "国内营销节日",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><rect height=\"18\" rx=\"2\" width=\"18\" x=\"3\" y=\"4\"></rect><line x1=\"16\" x2=\"16\" y1=\"2\" y2=\"6\"></line><line x1=\"8\" x2=\"8\" y1=\"2\" y2=\"6\"></line><line x1=\"3\" x2=\"21\" y1=\"10\" y2=\"10\"></line></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "metrics",
+      "navId": "nav-metrics",
+      "title": "电商运营指标",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><line x1=\"18\" x2=\"18\" y1=\"20\" y2=\"10\"></line><line x1=\"12\" x2=\"12\" y1=\"20\" y2=\"4\"></line><line x1=\"6\" x2=\"6\" y1=\"20\" y2=\"14\"></line><line x1=\"3\" x2=\"21\" y1=\"20\" y2=\"20\"></line></svg>",
+      "adminOnly": false
+    }
+  ],
+  [
+    {
+      "id": "prompts",
+      "navId": "nav-prompts",
+      "title": "提示词配置",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"></path><polyline points=\"14 2 14 8 20 8\"></polyline><line x1=\"16\" x2=\"8\" y1=\"13\" y2=\"13\"></line><line x1=\"16\" x2=\"8\" y1=\"17\" y2=\"17\"></line></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "models",
+      "navId": "nav-models",
+      "title": "大模型配置",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><rect height=\"14\" rx=\"2\" width=\"20\" x=\"2\" y=\"3\"></rect><line x1=\"8\" x2=\"16\" y1=\"21\" y2=\"21\"></line><line x1=\"12\" x2=\"12\" y1=\"17\" y2=\"21\"></line></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "model-shop",
+      "navId": "nav-model-shop",
+      "title": "大模型选购",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><circle cx=\"9\" cy=\"21\" r=\"1\"></circle><circle cx=\"20\" cy=\"21\" r=\"1\"></circle><path d=\"M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6\"></path></svg>",
+      "adminOnly": false
+    }
+  ],
+  [
+    {
+      "id": "demo",
+      "navId": "nav-demo",
+      "title": "操作演示",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><rect height=\"15\" rx=\"2\" width=\"20\" x=\"2\" y=\"4\"></rect><polygon fill=\"currentColor\" points=\"10 9 15 11.5 10 14\" stroke=\"none\"></polygon><line x1=\"8\" x2=\"16\" y1=\"22\" y2=\"22\"></line></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "user-center",
+      "navId": "nav-user-center",
+      "title": "用户中心",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><circle cx=\"12\" cy=\"8\" r=\"4\"></circle><path d=\"M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2\"></path></svg>",
+      "adminOnly": false
+    },
+    {
+      "id": "users",
+      "navId": "nav-users",
+      "title": "用户管理",
+      "badge": "",
+      "badgeId": "",
+      "svgHtml": "<svg class=\"nav-icon\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" viewbox=\"0 0 24 24\"><path d=\"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2\"></path><circle cx=\"9\" cy=\"7\" r=\"4\"></circle><path d=\"M23 21v-2a4 4 0 0 0-3-3.87\"></path><path d=\"M16 3.13a4 4 0 0 1 0 7.75\"></path></svg>",
+      "adminOnly": true
+    }
+  ]
+]

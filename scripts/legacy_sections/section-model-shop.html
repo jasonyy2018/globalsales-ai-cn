@@ -1,0 +1,93 @@
+<section class="section" id="section-model-shop">
+<div class="section-header">
+<h2 data-i18n="ms.title">🛒 大模型选购</h2>
+<p data-i18n="ms.subtitle">国内主流大模型采购清单 · 按性价比排序（免费 → 费用低 → 费用高）· 购买入口 / 多模态支持 / 优缺点 / 套餐价格 / API 接入文档</p>
+</div>
+<div class="card" style="padding:16px;margin-bottom:20px;border-left:3px solid var(--accent);">
+<div data-i18n="ms.intro" style="font-size:13px;color:var(--text-secondary);line-height:1.9;">选模型不是选「最强的」，是选「够用且算得过账的」。自媒体内容生产的实际负载是：大量中短文本 + 大量配图 + 少量视频。所以真正决定成本的是<b>图片单价</b>和<b>文本每百万 token 价格</b>，不是榜单排名。建议路径：先用免费档跑通流程 → 用量上来后换到费用低的国产模型做主力 → 只在关键文案/关键创意上调用高价旗舰。</div>
+</div>
+<!-- 价格档位说明。先讲清四个档意味着什么，再看下面的表才有判断依据 -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-bottom:20px;">
+<div class="card" style="padding:14px;border-left:3px solid #22c55e;">
+<div style="font-weight:700;font-size:14px;margin-bottom:6px;"><span class="price-badge price-free" data-i18n="ms.tier.free.badge">免费</span> <span data-i18n="ms.tier.free.name">零成本起步</span></div>
+<div data-i18n="ms.tier.free.desc" style="font-size:12px;color:var(--text-secondary);line-height:1.8;">有免费额度或完全免费的网关。适合跑通流程、验证提示词。缺点是限流、并发低、稳定性无 SLA，不要拿来做生产主力。</div>
+</div>
+<div class="card" style="padding:14px;border-left:3px solid #3b82f6;">
+<div style="font-weight:700;font-size:14px;margin-bottom:6px;"><span class="price-badge price-low" data-i18n="ms.tier.low.badge">费用低</span> <span data-i18n="ms.tier.low.name">量产主力</span></div>
+<div data-i18n="ms.tier.low.desc" style="font-size:12px;color:var(--text-secondary);line-height:1.8;">每百万 token 个位数到十几元人民币。国产模型集中在这一档，是日更内容的成本最优解。</div>
+</div>
+<div class="card" style="padding:14px;border-left:3px solid #f59e0b;">
+<div style="font-weight:700;font-size:14px;margin-bottom:6px;"><span class="price-badge price-mid" data-i18n="ms.tier.mid.badge">费用中</span> <span data-i18n="ms.tier.mid.name">质量兜底</span></div>
+<div data-i18n="ms.tier.mid.desc" style="font-size:12px;color:var(--text-secondary);line-height:1.8;">中等 API 价格档。适合文案终稿、需要更强逻辑与文笔的长文与品牌级内容。</div>
+</div>
+<div class="card" style="padding:14px;border-left:3px solid #ef4444;">
+<div style="font-weight:700;font-size:14px;margin-bottom:6px;"><span class="price-badge price-high" data-i18n="ms.tier.high.badge">费用高</span> <span data-i18n="ms.tier.high.name">关键创意</span></div>
+<div data-i18n="ms.tier.high.desc" style="font-size:12px;color:var(--text-secondary);line-height:1.8;">旗舰模型或高价视频模型。只在关键 campaign、品牌级创意上按次调用，不进日常流水线。</div>
+</div>
+</div>
+<div style="overflow-x:auto;">
+<table class="ref-table" id="modelShopTable">
+<thead>
+<tr>
+<th data-i18n="ms.col.tier">档位</th>
+<th data-i18n="ms.col.name">模型 / 平台</th>
+<th data-i18n="ms.col.vendor">厂商 / 地区</th>
+<th data-i18n="ms.col.modal">多模态支持</th>
+<th data-i18n="ms.col.price">套餐价格</th>
+<th data-i18n="ms.col.buy">购买入口</th>
+<th data-i18n="ms.col.pros">亮点 / 优点</th>
+<th data-i18n="ms.col.cons">缺点 / 注意</th>
+<th data-i18n="ms.col.doc">API 接入文档</th>
+</tr>
+</thead>
+<tbody id="modelShopBody"></tbody>
+</table>
+</div>
+<div data-i18n="ms.price.disclaimer" style="font-size:12px;color:var(--text-secondary);margin-top:10px;">⚠️ 价格为整理时的公开报价，厂商调价频繁；下单前请以「购买入口」页面的实时价格为准。表内不含任何 API Key —— 请到各厂商控制台自行申请。</div>
+<!-- AGNES 接入实操。免费档是用户最可能第一个动手试的，所以把步骤写全 -->
+<div class="section-header" style="margin-top:32px;">
+<h2 data-i18n="ms.agnes.title" style="font-size:18px;">🆓 免费首选：AGNES AI 接入实操</h2>
+</div>
+<div class="card" style="padding:18px;">
+<div data-i18n="ms.agnes.intro" style="font-size:13px;color:var(--text-secondary);line-height:1.9;margin-bottom:14px;">新加坡 AGNES AI 是一个 AI Gateway，提供免费的全模态模型（文本 / 图像 / 视频），走 OpenAI 兼容协议，所以任何支持「自定义 OpenAI 兼容端点」的工具都能直接接（包括本站的「大模型配置 → 添加模型」）。</div>
+<table class="ref-table" style="margin-top:0;">
+<tbody>
+<tr><td data-i18n="ms.agnes.f.home" style="white-space:nowrap;font-weight:600;width:150px;">官网</td>
+<td><a href="https://agnes-ai.com/" rel="noopener noreferrer" target="_blank">agnes-ai.com ↗</a></td></tr>
+<tr><td data-i18n="ms.agnes.f.key" style="white-space:nowrap;font-weight:600;">申请 API Key</td>
+<td><a href="https://platform.agnes-ai.com/settings/apiKeys" rel="noopener noreferrer" target="_blank">platform.agnes-ai.com/settings/apiKeys ↗</a>
+<span data-i18n="ms.agnes.f.key.note" style="color:var(--text-secondary);font-size:12px;"> —— 登录后进入 API Key 页面，创建并复制</span></td></tr>
+<tr><td style="white-space:nowrap;font-weight:600;">Provider</td>
+<td style="font-family:Consolas,monospace;">Custom<span data-i18n="ms.agnes.f.provider.note" style="color:var(--text-secondary);font-family:inherit;font-size:12px;">（提供商列表滑到最后，选「其他 / Custom」）</span></td></tr>
+<tr><td style="white-space:nowrap;font-weight:600;">API Base URL</td>
+<td style="font-family:Consolas,monospace;">https://apihub.agnes-ai.com/v1</td></tr>
+<tr><td style="white-space:nowrap;font-weight:600;">Model Name</td>
+<td style="font-family:Consolas,monospace;">agnes-2.0-flash<span data-i18n="ms.agnes.f.model.note" style="color:var(--text-secondary);font-family:inherit;font-size:12px;">（模型 ID 区分大小写，建议直接从平台复制）</span></td></tr>
+<tr><td data-i18n="ms.agnes.f.doc" style="white-space:nowrap;font-weight:600;">文档 / FAQ</td>
+<td><a href="https://agnes-ai.com/doc/overview" rel="noopener noreferrer" target="_blank">doc/overview ↗</a>
+<a href="https://agnes-ai.com/doc/faqs" rel="noopener noreferrer" target="_blank">doc/faqs ↗</a>
+<a data-i18n="ms.agnes.f.doc.wb" href="https://agnes-ai.com/doc/cid5" rel="noopener noreferrer" target="_blank">WorkBuddy 接入 ↗</a></td></tr>
+</tbody>
+</table>
+<div data-i18n="ms.agnes.warn" style="font-size:12px;color:#f59e0b;margin-top:14px;line-height:1.8;">⚠️ 图像和视频模型不走 chat 端点：在支持 Skill / 工具的客户端里，让它读 https://agnes-ai.com/doc/overview 自动生成生图、生视频的调用封装即可。视频任务是异步的，提交后要轮询任务状态才能拿到视频 URL。</div>
+</div>
+<!-- 常见故障。文档里的排查清单，避免用户接不通就以为模型不可用 -->
+<div class="section-header" style="margin-top:32px;">
+<h2 data-i18n="ms.trouble.title" style="font-size:18px;">🔧 接入失败排查</h2>
+</div>
+<div style="overflow-x:auto;">
+<table class="ref-table" id="msTroubleTable">
+<thead>
+<tr>
+<th data-i18n="ms.trouble.col.sym">现象</th>
+<th data-i18n="ms.trouble.col.cause">原因</th>
+<th data-i18n="ms.trouble.col.fix">怎么修</th>
+</tr>
+</thead>
+<tbody id="msTroubleBody"></tbody>
+</table>
+</div>
+<div class="card" style="padding:16px;margin-top:20px;border-left:3px solid var(--accent);">
+<div data-i18n="ms.summary" style="font-size:13px;line-height:1.9;">一句话总结：免费档用来验证，国产低价档用来量产，中价档用来把关键文案磨到能直接发布，旗舰档只在关键创意上按次买。别用一个模型打所有场景 —— 那是最贵的做法。</div>
+</div>
+</section>

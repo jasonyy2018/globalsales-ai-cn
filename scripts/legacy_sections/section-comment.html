@@ -1,0 +1,50 @@
+<section class="section" id="section-comment">
+<div class="section-header">
+<h2 data-i18n="comment.title">💬 热门评论衍生</h2>
+<p data-i18n="comment.subtitle">输入热门评论，AI智能衍生出多条引流话术，帮你轻松获取更多曝光</p>
+</div>
+<!-- 输入区 -->
+<div class="card" style="margin-bottom:20px;">
+<div data-i18n="comment.input.title" style="font-size:14px;font-weight:600;margin-bottom:10px;">📝 粘贴或输入热门评论</div>
+<div class="comment-input-area">
+<textarea id="commentInput" oninput="updateCommentCharCount()" placeholder='粘贴一条热门评论。例如：
+
+"这条我反复看了三遍，前3秒钩子那段直接给我干沉默了 👏 已经收藏，等下拿给我们运营看"'></textarea>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+<span id="commentCharCount" style="font-size:11px;color:var(--text-secondary);">0 / 500 字</span>
+<button class="btn btn-outline btn-sm" onclick="clearCommentInput()" style="font-size:11px;">清空</button>
+</div>
+</div>
+<div class="derive-btn-row">
+<select class="num-select" id="deriveNum" onchange="updateDeriveNum()">
+<option selected="" value="3">衍生 3 条</option>
+<option value="2">衍生 2 条</option>
+<option value="5">衍生 5 条</option>
+</select>
+<button class="btn btn-primary btn-lg" id="btnDeriveComment" onclick="startCommentDerivation()" style="flex:1;justify-content:center;max-width:280px;">
+<svg fill="none" height="18" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="18"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><polyline points="8,9 16,9"></polyline><polyline points="8,13 14,13"></polyline></svg>
+<span data-i18n="comment.btn.generate">衍生评论</span>
+</button>
+<div data-model-picker="comment" data-picker-label="文案模型" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"></div>
+</div>
+<!-- Loading -->
+<div class="loading-state" id="commentLoading" style="display:none;margin-top:16px;">
+<div class="loading-spinner"></div>
+<div class="loading-text">AI 正在衍生能带互动的评论变体，大约 5-10 秒…</div>
+</div>
+<!-- 衍生结果 -->
+<div class="derived-result-grid" id="derivedResultGrid"></div>
+</div>
+<!-- 热门评论展示区 -->
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+<div style="font-size:14px;font-weight:600;">🔥 国内平台热门评论（点击加载）</div>
+<button class="btn btn-outline btn-sm" onclick="refreshHotComments()" style="font-size:11px;gap:4px;">
+<svg fill="none" height="14" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="14"><polyline points="23,4 23,10 17,10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+            换一批
+          </button>
+</div>
+<p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">10 条来自抖音 / 小红书 / 快手 / 视频号 / 微信公众号 / 今日头条 / B站 / 知乎 / 微博 的真实风格热门评论 —— 点击任意一条即可加载到上方输入框。</p>
+<div class="hot-comment-grid" id="hotCommentGrid"></div>
+</div>
+</section>

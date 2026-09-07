@@ -1,0 +1,90 @@
+<section class="section" id="section-sourcing">
+<div class="section-header">
+<h2 data-i18n="src.title">🛒 选品</h2>
+<p data-i18n="src.subtitle">输入品类或品牌关键词，AI 从京东 / 天猫 / 拼多多 / 抖音商城等国内电商与自媒体讨论中挖掘近一个月的热销候选品，按「自定义客单价区间 + 好评率高」筛选后输出可核对的选品表</p>
+</div>
+<div class="card" style="padding:16px;margin-bottom:20px;border-left:3px solid var(--accent);">
+<div data-i18n="src.intro" style="font-size:13px;line-height:1.9;">选品的本质是找「需求已被验证、竞争还没饱和」的价格带。价格区间自己填：低价带（0–100 元）拼的是供应链极限成本和退货率，靠拼多多 / 抖音低价爆量；中价带（100–500 元）是内容种草转化最舒服的区间，短视频和直播都能带；高价带（500 元以上）决策周期长、更依赖专业内容与信任背书，适合京东 / 天猫 / 视频号。</div>
+</div>
+<div style="margin-bottom:20px;">
+<div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+<span data-i18n="src.filter.label" style="font-size:12px;color:var(--text-secondary);">筛选条件：</span>
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);">
+<span data-i18n="src.filter.price">客单价（元）</span>
+<!-- 自定义价格带：两头都可以留空 = 不限。不写死 60/300 是因为国内各平台
+                 的主力价格带差得很远（拼多多几十元 vs 京东家电几千元），
+                 给死默认值会把用户往错的价格带上引。 -->
+<input data-i18n-placeholder="src.filter.price.min" id="srcPriceMin" inputmode="numeric" placeholder="不限" style="width:76px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text-primary);font-size:12px;" type="text" value=""/>
+<span>–</span>
+<input data-i18n-placeholder="src.filter.price.max" id="srcPriceMax" inputmode="numeric" placeholder="不限" style="width:76px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text-primary);font-size:12px;" type="text" value=""/>
+</label>
+<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);">
+<span data-i18n="src.filter.rating">好评率 ≥</span>
+<select id="srcMinRating" style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text-primary);font-size:12px;">
+<option value="80">80%</option>
+<option selected="" value="85">85%</option>
+<option value="90">90%</option>
+<option value="95">95%</option>
+</select>
+</label>
+<div data-model-picker="sourcing" data-picker-label="选品分析模型" style="display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap;"></div>
+</div>
+<div class="search-wrapper" style="margin-bottom:14px;">
+<svg fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24"><circle cx="11" cy="11" r="8"></circle><line x1="21" x2="16.65" y1="21" y2="16.65"></line></svg>
+<input autocomplete="off" class="search-input" data-i18n-placeholder="src.search.placeholder" id="srcKeywordInput" name="gs_sourcing_query" onkeydown="if(event.key==='Enter')runSourcing()" placeholder="输入品类或品牌关键词，例如：智能猫砂盆 / 电动升降桌 / 露营装备" type="text"/>
+</div>
+<!-- 内置选品关键词：一排 10 个，全部是面向国内电商运营的品类词（见 SOURCING_KEYWORDS） -->
+<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+<span data-i18n="src.kw.hint" style="font-size:12px;color:var(--text-secondary);flex-shrink:0;">🎯 选品关键词（点击直接分析）：</span>
+<span id="sourcingKwChips" style="display:flex;gap:6px;flex-wrap:wrap;"></span>
+</div>
+<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+<button class="btn btn-primary" id="btnRunSourcing" onclick="runSourcing()">
+<svg fill="none" height="14" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="14"><circle cx="11" cy="11" r="8"></circle><line x1="21" x2="16.65" y1="21" y2="16.65"></line></svg>
+<span data-i18n="src.btn.run">开始选品分析</span>
+</button>
+<button class="btn btn-outline btn-sm" id="btnCopySourcing" onclick="copySourcingTable()" style="display:none;">
+<svg fill="none" height="14" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="14"><rect height="13" rx="2" width="13" x="9" y="9"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+<span data-i18n="src.btn.copy">复制表格</span>
+</button>
+<span data-i18n="src.hint.time" style="font-size:12px;color:var(--text-secondary);">首次分析约需 20–50 秒</span>
+</div>
+</div>
+<div id="srcLoading" style="display:none;text-align:center;padding:60px 20px;">
+<div style="width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 16px;"></div>
+<p id="srcLoadingText" style="color:var(--text-secondary);">正在抓取国内电商平台讨论并分析候选品...</p>
+</div>
+<div id="srcResult" style="display:none;">
+<!-- 数据可信度提示条常驻，不做成 toast：用户要拿这张表做采购决策，
+             必须始终看得见"哪些数字是估算的" -->
+<div class="card" style="padding:12px 14px;margin-bottom:14px;border-left:3px solid #f59e0b;font-size:12px;line-height:1.8;color:var(--text-secondary);">
+<span data-i18n="src.disclaimer">⚠️ 数据说明：「搜同款」是按平台 + 商品名拼的**平台搜索链接**（一定打得开，点开是该平台在售的同款列表）；「参考来源」只在本次实时抓到过该链接时才出现，多为榜单/测评文章，不一定是商品详情页。本页**不提供商品详情页直链** —— 详情页地址里带商品 ID，AI 拿不到真实 ID，给出来的必然是打不开或对不上的死链。销量 / 客单价 / 好评差评比例来自公开讨论与榜单的区间估算，国内电商平台不开放这些数字的公开接口。抓不到的字段一律标 N/A，不会用编造值填充。下单前请点「搜同款」核对实际商品与价格。</span>
+</div>
+<div id="srcMeta" style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;"></div>
+<div style="overflow-x:auto;">
+<table class="ref-table" id="sourcingTable">
+<thead>
+<tr>
+<th style="min-width:36px;">#</th>
+<th data-i18n="src.col.name" style="min-width:180px;">商品名称 / 标题</th>
+<th data-i18n="src.col.link" style="min-width:96px;">平台 / 搜同款</th>
+<th data-i18n="src.col.sales">近一个月销量</th>
+<th data-i18n="src.col.aov">客单价</th>
+<th data-i18n="src.col.feature" style="min-width:160px;">特点备注</th>
+<th data-i18n="src.col.good">好评率</th>
+<th data-i18n="src.col.bad">差评率</th>
+<th data-i18n="src.col.goodwhy" style="min-width:170px;">好评集中在</th>
+<th data-i18n="src.col.badwhy" style="min-width:170px;">差评集中在</th>
+<th data-i18n="src.col.buyer" style="min-width:150px;">购买人群 / 年龄段</th>
+</tr>
+</thead>
+<tbody id="sourcingBody"></tbody>
+</table>
+</div>
+</div>
+<div id="srcEmpty" style="display:none;text-align:center;padding:60px 20px;">
+<svg fill="none" height="64" stroke="var(--text-secondary)" stroke-width="1.5" style="margin:0 auto 16px;" viewbox="0 0 24 24" width="64"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"></path></svg>
+<p data-i18n="src.empty.title" style="color:var(--text-secondary);font-size:15px;">没有筛选出符合条件的候选品</p>
+<p data-i18n="src.empty.hint" style="color:var(--text-secondary);font-size:13px;margin-top:4px;">试试放宽价格区间，或换一个更具体的品类词（例如「电动升降桌」而不是「家具」）</p>
+</div>
+</section>

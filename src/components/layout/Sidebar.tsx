@@ -1,199 +1,355 @@
 "use client";
 
 import React from "react";
-import {
-  ShoppingBag,
-  Flame,
-  Search,
-  FileText,
-  Video,
-  MessageSquareQuote,
-  PenTool,
-  Image as ImageIcon,
-  Film,
-  MessagesSquare,
-  ShieldAlert,
-  Share2,
-  FolderArchive,
-  Activity,
-  Store,
-  Globe2,
-  CalendarDays,
-  BarChart3,
-  Cpu,
-  Layers,
-  Sparkles,
-  HelpCircle,
-  User,
-  Users,
-  Lock,
-} from "lucide-react";
-import type { UserRole } from "@/types";
-
-export interface NavItem {
-  id: string;
-  name: string;
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-  iconColor: string;
-  badge?: string;
-  adminOnly?: boolean;
-}
-
-export interface NavGroup {
-  name: string;
-  items: NavItem[];
-}
-
-export const NAV_GROUPS: NavGroup[] = [
-  {
-    name: "选品",
-    items: [
-      { id: "sourcing", name: "选品推荐", icon: ShoppingBag, iconColor: "#34d399", badge: "AI" },
-    ],
-  },
-  {
-    name: "内容主链路",
-    items: [
-      { id: "hotspot", name: "热点发现", icon: Flame, iconColor: "#fbbf24", badge: "实时" },
-      { id: "product", name: "商品情报抓取", icon: Search, iconColor: "#38bdf8", badge: "URL" },
-      { id: "article", name: "图文生成", icon: FileText, iconColor: "#fb7185" },
-      { id: "video", name: "视频生成", icon: Video, iconColor: "#c084fc" },
-      { id: "freeqa", name: "自由问答", icon: MessageSquareQuote, iconColor: "#818cf8" },
-    ],
-  },
-  {
-    name: "创作工具",
-    items: [
-      { id: "text-studio", name: "文案创作", icon: PenTool, iconColor: "#2dd4bf" },
-      { id: "image", name: "图片创作", icon: ImageIcon, iconColor: "#f472b6" },
-      { id: "video-create", name: "视频创作", icon: Film, iconColor: "#60a5fa" },
-      { id: "comment", name: "热门评论衍生", icon: MessagesSquare, iconColor: "#fb923c" },
-      { id: "smart-reply", name: "棘手评论回复", icon: ShieldAlert, iconColor: "#a78bfa" },
-    ],
-  },
-  {
-    name: "资产与账号",
-    items: [
-      { id: "accounts", name: "账号管理", icon: Share2, iconColor: "#facc15", adminOnly: true },
-      { id: "assets", name: "自媒体资产", icon: FolderArchive, iconColor: "#22d3ee" },
-      { id: "ip-stats", name: "访客IP统计", icon: Activity, iconColor: "#f87171", adminOnly: true },
-    ],
-  },
-  {
-    name: "参考资料",
-    items: [
-      { id: "commerce-platforms", name: "主流电商平台", icon: Store, iconColor: "#a3e635" },
-      { id: "social-platforms", name: "主流社媒平台", icon: Globe2, iconColor: "#e879f9" },
-      { id: "holidays", name: "国内营销节日", icon: CalendarDays, iconColor: "#34d399" },
-      { id: "metrics", name: "电商运营指标", icon: BarChart3, iconColor: "#38bdf8" },
-    ],
-  },
-  {
-    name: "配置",
-    items: [
-      { id: "prompts", name: "提示词配置", icon: Layers, iconColor: "#a78bfa" },
-      { id: "models", name: "大模型配置", icon: Cpu, iconColor: "#818cf8" },
-      { id: "model-shop", name: "大模型选购", icon: Sparkles, iconColor: "#fbbf24" },
-    ],
-  },
-  {
-    name: "帮助与账号",
-    items: [
-      { id: "demo", name: "操作演示", icon: HelpCircle, iconColor: "#fb7185" },
-      { id: "user-center", name: "用户中心", icon: User, iconColor: "#60a5fa" },
-      { id: "users", name: "用户管理", icon: Users, iconColor: "#f87171", adminOnly: true },
-    ],
-  },
-];
+import type { User } from "@/types";
 
 interface SidebarProps {
   currentSection: string;
   onSelectSection: (id: string) => void;
-  userRole?: UserRole;
+  user: User | null;
+  onLogout: () => void;
+  onOpenAuth: () => void;
+  assetsCount?: number;
 }
 
-export function Sidebar({ currentSection, onSelectSection, userRole = "user" }: SidebarProps) {
-  const isAdmin = userRole === "admin";
+export function Sidebar({
+  currentSection,
+  onSelectSection,
+  user,
+  onLogout,
+  onOpenAuth,
+  assetsCount = 0,
+}: SidebarProps) {
+  const isAdmin = user?.role === "admin";
 
   return (
-    <aside className="w-64 bg-[#0a101f]/95 border-r border-slate-800/80 flex flex-col h-screen sticky top-0 shrink-0 select-none z-20 backdrop-blur-xl">
-      {/* Brand Header */}
-      <div className="p-4 border-b border-slate-800/80 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 p-0.5 shadow-lg shadow-indigo-500/20">
-            <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-indigo-400" />
-            </div>
-          </div>
-          <div>
-            <h1 className="text-sm font-bold text-slate-100 tracking-wide">自媒体AI运营平台</h1>
-            <p className="text-[11px] text-slate-400">Next.js 全栈版 v2.0</p>
-          </div>
-        </div>
+    <aside className="sidebar">
+      {/* 1:1 Exact Original Logo */}
+      <div className="logo">
+        <img
+          src="/Logo.png"
+          alt="Logo"
+          style={{ width: "80%", height: "auto", maxWidth: "176px", objectFit: "contain" }}
+        />
       </div>
 
-      {/* Navigation list */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
-        {NAV_GROUPS.map((group, groupIdx) => {
-          const visibleItems = group.items.filter((item) => !item.adminOnly || isAdmin);
-          if (visibleItems.length === 0) return null;
+      {/* Navigation items divided by exact .nav-divider */}
+      <nav style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        <button
+          className={`nav-item ${currentSection === "sourcing" ? "active" : ""}`}
+          id="nav-sourcing"
+          onClick={() => onSelectSection("sourcing")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"></path></svg>
+          <span>选品</span>
+          <span className="nav-badge">AI</span>
+        </button>
+        <div className="nav-divider" />
+        <button
+          className={`nav-item ${currentSection === "hotspot" ? "active" : ""}`}
+          id="nav-hotspot"
+          onClick={() => onSelectSection("hotspot")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2z"></path><circle cx="12" cy="20" r="2"></circle></svg>
+          <span>热点发现</span>
+          <span className="nav-badge">实时</span>
+        </button>
+        <button
+          className={`nav-item ${currentSection === "product" ? "active" : ""}`}
+          id="nav-product"
+          onClick={() => onSelectSection("product")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" x2="21" y1="6" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+          <span>商品情报抓取</span>
+          <span className="nav-badge">URL</span>
+        </button>
+        <button
+          className={`nav-item ${currentSection === "article" ? "active" : ""}`}
+          id="nav-article"
+          onClick={() => onSelectSection("article")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect height="18" rx="2" width="18" x="3" y="3"></rect><line x1="8" x2="16" y1="8" y2="8"></line><line x1="8" x2="16" y1="12" y2="12"></line><line x1="8" x2="12" y1="16" y2="16"></line></svg>
+          <span>图文生成</span>
+        </button>
+        <button
+          className={`nav-item ${currentSection === "video" ? "active" : ""}`}
+          id="nav-video"
+          onClick={() => onSelectSection("video")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"></polygon></svg>
+          <span>视频生成</span>
+        </button>
+        <div className="nav-divider" />
+        <button
+          className={`nav-item ${currentSection === "freeqa" ? "active" : ""}`}
+          id="nav-freeqa"
+          onClick={() => onSelectSection("freeqa")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          <span>自由问答</span>
+        </button>
+        <button
+          className={`nav-item ${currentSection === "text-studio" ? "active" : ""}`}
+          id="nav-text-studio"
+          onClick={() => onSelectSection("text-studio")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h10"></path><path d="M18 16l3 3-3 3"></path></svg>
+          <span>文案创作</span>
+        </button>
+        <button
+          className={`nav-item ${currentSection === "image" ? "active" : ""}`}
+          id="nav-image"
+          onClick={() => onSelectSection("image")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect height="18" rx="2" width="18" x="3" y="3"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21,15 16,10 5,21"></polyline></svg>
+          <span>图片创作</span>
+        </button>
+        <button
+          className={`nav-item ${currentSection === "video-create" ? "active" : ""}`}
+          id="nav-video-create"
+          onClick={() => onSelectSection("video-create")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect height="12" rx="2" width="14" x="2" y="6"></rect><polyline points="22,8 16,12 22,16 22,8"></polyline></svg>
+          <span>视频创作</span>
+        </button>
+        <button
+          className={`nav-item ${currentSection === "comment" ? "active" : ""}`}
+          id="nav-comment"
+          onClick={() => onSelectSection("comment")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><polyline points="8,9 16,9"></polyline><polyline points="8,13 14,13"></polyline></svg>
+          <span>热门评论衍生</span>
+        </button>
+        <button
+          className={`nav-item ${currentSection === "smart-reply" ? "active" : ""}`}
+          id="nav-smart-reply"
+          onClick={() => onSelectSection("smart-reply")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12c0 1.6.4 3.1 1.1 4.4L2 22l5.6-1.1c1.3.7 2.8 1.1 4.4 1.1z"></path><polyline points="8,9 16,9"></polyline><polyline points="8,13 14,13"></polyline></svg>
+          <span>棘手评论回复</span>
+        </button>
+        <div className="nav-divider" />
+        <button
+          className={`nav-item ${currentSection === "accounts" ? "active" : ""}`}
+          id="nav-accounts"
+          onClick={() => onSelectSection("accounts")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          <span>账号管理</span>
+          <span className="nav-badge">0</span>
+        </button>
+        <button
+          className={`nav-item ${currentSection === "assets" ? "active" : ""}`}
+          id="nav-assets"
+          onClick={() => onSelectSection("assets")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" x2="12" y1="11" y2="17"></line><line x1="9" x2="15" y1="14" y2="14"></line></svg>
+          <span>自媒体资产</span>
+          <span className="nav-badge">0</span>
+          <span className="nav-badge" id="nav-assets-badge">{assetsCount}</span>
+        </button>
+        <button
+          className={`nav-item ${currentSection === "ip-stats" ? "active" : ""}`}
+          id="nav-ip-stats"
+          onClick={() => onSelectSection("ip-stats")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect height="8" rx="2" width="20" x="2" y="2"></rect><rect height="8" rx="2" width="20" x="2" y="14"></rect><circle cx="6" cy="6" r="1"></circle><circle cx="10" cy="18" r="1"></circle></svg>
+          <span>访客IP统计</span>
+        </button>
+        <div className="nav-divider" />
+        <button
+          className={`nav-item ${currentSection === "commerce-platforms" ? "active" : ""}`}
+          id="nav-commerce-platforms"
+          onClick={() => onSelectSection("commerce-platforms")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" x2="21" y1="6" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
+          <span>主流电商平台</span>
+        </button>
+        <button
+          className={`nav-item ${currentSection === "social-platforms" ? "active" : ""}`}
+          id="nav-social-platforms"
+          onClick={() => onSelectSection("social-platforms")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="2" x2="22" y1="12" y2="12"></line><path d="M12 2a15 15 0 0 1 4 10 15 15 0 0 1-4 10 15 15 0 0 1-4-10 15 15 0 0 1 4-10z"></path></svg>
+          <span>主流社媒平台</span>
+        </button>
+        <button
+          className={`nav-item ${currentSection === "holidays" ? "active" : ""}`}
+          id="nav-holidays"
+          onClick={() => onSelectSection("holidays")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect height="18" rx="2" width="18" x="3" y="4"></rect><line x1="16" x2="16" y1="2" y2="6"></line><line x1="8" x2="8" y1="2" y2="6"></line><line x1="3" x2="21" y1="10" y2="10"></line></svg>
+          <span>国内营销节日</span>
+        </button>
+        <button
+          className={`nav-item ${currentSection === "metrics" ? "active" : ""}`}
+          id="nav-metrics"
+          onClick={() => onSelectSection("metrics")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="18" x2="18" y1="20" y2="10"></line><line x1="12" x2="12" y1="20" y2="4"></line><line x1="6" x2="6" y1="20" y2="14"></line><line x1="3" x2="21" y1="20" y2="20"></line></svg>
+          <span>电商运营指标</span>
+        </button>
+        <div className="nav-divider" />
+        <button
+          className={`nav-item ${currentSection === "prompts" ? "active" : ""}`}
+          id="nav-prompts"
+          onClick={() => onSelectSection("prompts")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" x2="8" y1="13" y2="13"></line><line x1="16" x2="8" y1="17" y2="17"></line></svg>
+          <span>提示词配置</span>
+        </button>
+        <button
+          className={`nav-item ${currentSection === "models" ? "active" : ""}`}
+          id="nav-models"
+          onClick={() => onSelectSection("models")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect height="14" rx="2" width="20" x="2" y="3"></rect><line x1="8" x2="16" y1="21" y2="21"></line><line x1="12" x2="12" y1="17" y2="21"></line></svg>
+          <span>大模型配置</span>
+        </button>
+        <button
+          className={`nav-item ${currentSection === "model-shop" ? "active" : ""}`}
+          id="nav-model-shop"
+          onClick={() => onSelectSection("model-shop")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
+          <span>大模型选购</span>
+        </button>
+        <div className="nav-divider" />
+        <button
+          className={`nav-item ${currentSection === "demo" ? "active" : ""}`}
+          id="nav-demo"
+          onClick={() => onSelectSection("demo")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect height="15" rx="2" width="20" x="2" y="4"></rect><polygon fill="currentColor" points="10 9 15 11.5 10 14" stroke="none"></polygon><line x1="8" x2="16" y1="22" y2="22"></line></svg>
+          <span>操作演示</span>
+        </button>
+        <button
+          className={`nav-item ${currentSection === "user-center" ? "active" : ""}`}
+          id="nav-user-center"
+          onClick={() => onSelectSection("user-center")}
+        >
+          <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"></circle><path d="M4 21v-2a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v2"></path></svg>
+          <span>用户中心</span>
+        </button>
+        {isAdmin && (
+          <button
+            className={`nav-item ${currentSection === "users" ? "active" : ""}`}
+            id="nav-users"
+            onClick={() => onSelectSection("users")}
+          >
+            <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <span>用户管理</span>
+          </button>
+        )}
+      </nav>
 
-          return (
-            <div key={group.name} className="space-y-1">
-              <div className="px-3 text-[11px] font-semibold text-slate-500 tracking-wider uppercase mb-1.5 flex items-center justify-between">
-                <span>{group.name}</span>
-                {groupIdx > 0 && <span className="text-[10px] text-slate-600">0{groupIdx + 1}</span>}
+      {/* 1:1 Exact User Badge and System Status */}
+      <div style={{ padding: "16px 20px", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
+        {user ? (
+          <div id="userBadge" style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", fontSize: "13px" }}>
+            <div
+              id="userBadgeAvatar"
+              style={{
+                width: "26px",
+                height: "26px",
+                borderRadius: "50%",
+                background: "var(--accent)",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 700,
+                fontSize: "12px",
+              }}
+            >
+              {user.username ? user.username.charAt(0).toUpperCase() : "U"}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div id="userBadgeName" style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {user.username}
               </div>
-
-              {visibleItems.map((item) => {
-                const isActive = currentSection === item.id;
-                const IconComponent = item.icon;
-
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => onSelectSection(item.id)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium transition-all duration-150 group ${
-                      isActive
-                        ? "bg-gradient-to-r from-indigo-600/30 via-purple-600/20 to-transparent text-indigo-200 border-l-2 border-indigo-500 shadow-sm"
-                        : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50"
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2.5">
-                      <IconComponent
-                        className={`w-4 h-4 transition-transform group-hover:scale-110 shrink-0 ${
-                          isActive ? "opacity-100" : "opacity-80"
-                        }`}
-                        style={{ color: item.iconColor }}
-                      />
-                      <span className="truncate">{item.name}</span>
-                    </div>
-
-                    <div className="flex items-center space-x-1.5 shrink-0">
-                      {item.badge && (
-                        <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                          {item.badge}
-                        </span>
-                      )}
-                      {item.adminOnly && (
-                        <Lock className="w-3 h-3 text-amber-400/80" />
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
+              <div id="userBadgeRole" style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
+                {user.role === "admin" ? "管理员" : "普通用户"}
+              </div>
             </div>
-          );
-        })}
-      </div>
+            <button
+              onClick={onLogout}
+              title="退出登录"
+              style={{
+                flexShrink: 0,
+                background: "none",
+                border: "1px solid var(--border)",
+                borderRadius: "6px",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                padding: "4px 10px",
+                fontSize: "12px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              退出登录
+            </button>
+          </div>
+        ) : (
+          <div id="userBadge" style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px", fontSize: "13px" }}>
+            <div
+              id="userBadgeAvatar"
+              style={{
+                width: "26px",
+                height: "26px",
+                borderRadius: "50%",
+                background: "var(--accent)",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 700,
+                fontSize: "12px",
+              }}
+            >
+              ?
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div id="userBadgeName" style={{ fontWeight: 600, color: "var(--text-secondary)" }}>
+                未登录
+              </div>
+              <div id="userBadgeRole" style={{ fontSize: "11px", color: "var(--text-secondary)" }}>
+                请先登录
+              </div>
+            </div>
+            <button
+              onClick={onOpenAuth}
+              title="登录 / 注册"
+              style={{
+                flexShrink: 0,
+                background: "var(--accent)",
+                border: "none",
+                borderRadius: "6px",
+                color: "#fff",
+                cursor: "pointer",
+                padding: "4px 10px",
+                fontSize: "12px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              登录
+            </button>
+          </div>
+        )}
 
-      {/* Footer info */}
-      <div className="p-3 border-t border-slate-800/80 text-[11px] text-slate-500 flex items-center justify-between bg-slate-950/40">
-        <span className="flex items-center space-x-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>系统正常运行</span>
-        </span>
-        <span className="text-slate-600">Docker Standalone</span>
+        <div style={{ fontSize: "12px", color: "var(--text-secondary)" }}>当前状态</div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "8px" }}>
+          <div
+            style={{
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              background: "var(--green)",
+              boxShadow: "0 0 8px rgba(34,197,94,0.5)",
+            }}
+          />
+          <span style={{ fontSize: "13px" }}>所有服务正常运行</span>
+        </div>
       </div>
     </aside>
   );

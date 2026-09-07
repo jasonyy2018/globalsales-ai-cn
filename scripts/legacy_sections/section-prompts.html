@@ -1,0 +1,50 @@
+<section class="section" id="section-prompts">
+<div class="section-header">
+<h2 data-i18n="prompts.title">📝 提示词配置</h2>
+<p data-i18n="prompts.subtitle">集中管理平台上所有功能模块使用的提示词，支持查看、编辑、按语言/模块过滤</p>
+</div>
+<!-- 搜索过滤 -->
+<div style="margin-bottom:20px;display:flex;gap:12px;flex-wrap:wrap;">
+<div class="search-wrapper" style="flex:1;min-width:240px;">
+<svg fill="none" height="16" stroke="currentColor" stroke-width="2" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-secondary);" viewbox="0 0 24 24" width="16"><circle cx="11" cy="11" r="8"></circle><line x1="21" x2="16.65" y1="21" y2="16.65"></line></svg>
+<input autocapitalize="off" autocomplete="off" autocorrect="off" class="search-input" data-i18n-placeholder="prompts.search.placeholder" id="promptSearch" name="gs_prompt_query" oninput="this.dataset.userTyped='1';renderPromptList()" placeholder="搜索提示词..." spellcheck="false" style="padding-left:36px;" type="search"/>
+</div>
+<select id="promptModuleFilter" onchange="renderPromptList()" style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:8px;padding:8px 14px;color:var(--text-primary);font-size:13px;">
+<option data-i18n="prompts.filter.module.all" value="">全部模块</option>
+<option value="热点发现">热点发现</option>
+<option value="图文生成">图文生成</option>
+<option value="短视频生成">短视频生成</option>
+<option value="图片创作">图片创作</option>
+<option value="视频创作">视频创作</option>
+<option value="评论运营">评论运营</option>
+<option value="爆款拆解">爆款拆解</option>
+</select>
+<button class="btn btn-outline btn-sm" onclick="resetAllPrompts()" style="white-space:nowrap;">🔄 恢复默认</button>
+</div>
+<div id="promptList" style="display:flex;flex-direction:column;gap:12px;"></div>
+<div class="empty-state" id="promptEmpty" style="display:none;">
+<div class="empty-icon">📄</div>
+<p style="font-size:16px;font-weight:500;margin-bottom:4px;">没有匹配的提示词</p>
+<p style="font-size:13px;">换个关键词试试</p>
+</div>
+<!-- 编辑弹窗 -->
+<div id="promptEditModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center;">
+<div style="background:var(--bg-secondary);border-radius:16px;padding:24px;width:90%;max-width:800px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+<div>
+<span id="promptEditModule" style="font-size:12px;color:var(--accent);background:var(--accent-glow);padding:2px 10px;border-radius:10px;"></span>
+<span id="promptEditName" style="font-size:16px;font-weight:600;margin-left:8px;"></span>
+</div>
+<button onclick="closePromptEdit()" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:20px;padding:4px 8px;">✕</button>
+</div>
+<textarea id="promptEditContent" style="flex:1;min-height:300px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:10px;padding:16px;color:var(--text-primary);font-family:monospace;font-size:13px;line-height:1.6;resize:vertical;"></textarea>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;">
+<span style="font-size:11px;color:var(--text-secondary);">修改后点击保存，数据存储在浏览器本地</span>
+<div style="display:flex;gap:8px;">
+<button class="btn btn-outline btn-sm" onclick="closePromptEdit()">取消</button>
+<button class="btn btn-primary btn-sm" onclick="savePromptEdit()">💾 保存</button>
+</div>
+</div>
+</div>
+</div>
+</section>
