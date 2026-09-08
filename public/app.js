@@ -11808,6 +11808,420 @@ async function resetAllPrompts() {
   }
 }
 
+
+// ============ 大模型一键导入 (通过 API /v1/models 探测获取) ============
+
+var IMPORT_PRESETS = {
+  deepseek: {
+    provider: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com/v1',
+    protocol: 'OpenAI 兼容协议'
+  },
+  siliconflow: {
+    provider: 'SiliconFlow',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    protocol: 'OpenAI 兼容协议'
+  },
+  dashscope: {
+    provider: '阿里云通义千问',
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    protocol: 'OpenAI 兼容协议'
+  },
+  kimi: {
+    provider: '月之暗面 Kimi',
+    baseUrl: 'https://api.moonshot.cn/v1',
+    protocol: 'OpenAI 兼容协议'
+  },
+  zhipu: {
+    provider: '智谱清言 GLM',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    protocol: 'OpenAI 兼容协议'
+  },
+  openai: {
+    provider: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    protocol: 'OpenAI 兼容协议'
+  },
+  oneapi: {
+    provider: 'OneAPI 中转',
+    baseUrl: 'https://api.openai.com/v1',
+    protocol: 'OpenAI 兼容协议'
+  },
+  ollama: {
+    provider: 'Ollama (本地)',
+    baseUrl: 'http://localhost:11434/v1',
+    protocol: 'OpenAI 兼容协议'
+  }
+};
+
+var _fetchedRemoteModels = [];
+var _remoteSuggestedChatUrl = '';
+
+function openImportModelsModal() {
+  var modal = document.getElementById('importModelsModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  var status = document.getElementById('importFetchStatus');
+  if (status) status.textContent = '';
+}
+
+function closeImportModelsModal() {
+  var modal = document.getElementById('importModelsModal');
+  if (!modal) return;
+  modal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function applyImportPreset(key) {
+  var p = IMPORT_PRESETS[key];
+  if (!p) return;
+  var bUrl = document.getElementById('importBaseUrl');
+  var prov = document.getElementById('importProvider');
+  var proto = document.getElementById('importProtocol');
+  if (bUrl) bUrl.value = p.baseUrl;
+  if (prov) prov.value = p.provider;
+  if (proto) proto.value = p.protocol;
+  var status = document.getElementById('importFetchStatus');
+  if (status) {
+    status.textContent = '已填充 ' + p.provider + ' 预设配置，请填写对应 API Key 后点击获取';
+    status.style.color = 'var(--accent-light)';
+  }
+}
+
+function toggleImportApiKeyVisibility() {
+  var inp = document.getElementById('importApiKey');
+  var btn = document.getElementById('toggleImportKeyBtn');
+  if (!inp || !btn) return;
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    btn.textContent = '🙈 隐藏';
+  } else {
+    inp.type = 'password';
+    btn.textContent = '👁 显示';
+  }
+}
+
+async function fetchRemoteModels() {
+  var baseUrl = (document.getElementById('importBaseUrl').value || '').trim();
+  var apiKey = (document.getElementById('importApiKey').value || '').trim();
+  var protocol = (document.getElementById('importProtocol').value || 'OpenAI 兼容协议').trim();
+  var provider = (document.getElementById('importProvider').value || '').trim();
+  var statusEl = document.getElementById('importFetchStatus');
+  var btn = document.getElementById('btnFetchRemoteModels');
+
+  if (!baseUrl) {
+    if (statusEl) { statusEl.textContent = '⚠️ 请先填写 Base URL'; statusEl.style.color = '#ef4444'; }
+    return;
+  }
+
+  btn.disabled = true;
+  var origHtml = btn.innerHTML;
+  btn.innerHTML = '<div style="width:12px;height:12px;border:2px solid rgba(255,255,255,0.3);border-top-color:currentColor;border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block;"></div> 正在拉取中...';
+  if (statusEl) { statusEl.textContent = '正在连接远端 API 获取模型列表...'; statusEl.style.color = 'var(--text-secondary)'; }
+
+  try {
+    var resp = await fetch('/api/models/fetch_remote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        base_url: baseUrl,
+        api_key: apiKey,
+        protocol: protocol
+      })
+    });
+    var data = await resp.json();
+
+    if (!resp.ok || !data.success) {
+      var errMsg = (data && data.error) || ('HTTP ' + resp.status);
+      if (statusEl) { statusEl.textContent = '❌ ' + errMsg; statusEl.style.color = '#ef4444'; }
+      return;
+    }
+
+    _fetchedRemoteModels = data.models || [];
+    _remoteSuggestedChatUrl = data.suggested_chat_endpoint || baseUrl;
+
+    if (!provider && data.detected_provider) {
+      document.getElementById('importProvider').value = data.detected_provider;
+    }
+
+    if (statusEl) {
+      statusEl.textContent = '✅ 成功获取 ' + _fetchedRemoteModels.length + ' 个模型';
+      statusEl.style.color = '#22c55e';
+    }
+
+    document.getElementById('importResultsPanel').style.display = 'flex';
+    renderImportModelsList();
+  } catch (err) {
+    if (statusEl) {
+      statusEl.textContent = '❌ 连接失败：' + ((err && err.message) || '网络错误');
+      statusEl.style.color = '#ef4444';
+    }
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origHtml;
+  }
+}
+
+function renderImportModelsList() {
+  var box = document.getElementById('importModelsListBox');
+  if (!box) return;
+
+  var currentModels = getModels();
+  var existingSlugs = {};
+  for (var i = 0; i < currentModels.length; i++) {
+    if (currentModels[i].model) existingSlugs[currentModels[i].model.toLowerCase()] = true;
+    if (currentModels[i].id) existingSlugs[currentModels[i].id.toLowerCase()] = true;
+  }
+
+  var searchKw = (document.getElementById('importSearchInput').value || '').trim().toLowerCase();
+
+  var html = '';
+  var visibleCount = 0;
+  var selectedCount = 0;
+
+  for (var i = 0; i < _fetchedRemoteModels.length; i++) {
+    var m = _fetchedRemoteModels[i];
+    var idLower = m.id.toLowerCase();
+    if (searchKw && idLower.indexOf(searchKw) === -1 && (m.name || '').toLowerCase().indexOf(searchKw) === -1) {
+      continue;
+    }
+
+    visibleCount++;
+    var isChecked = m.checked !== false;
+    if (isChecked) selectedCount++;
+
+    var isExisting = !!existingSlugs[idLower];
+    var tagExisting = isExisting
+      ? '<span style="font-size:11px;background:rgba(234,179,8,0.15);color:#eab308;padding:2px 8px;border-radius:6px;border:1px solid rgba(234,179,8,0.3);">已在配置中</span>'
+      : '<span style="font-size:11px;background:rgba(34,197,94,0.15);color:#22c55e;padding:2px 8px;border-radius:6px;border:1px solid rgba(34,197,94,0.3);">新模型</span>';
+
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:10px 14px;transition:all 0.2s;">'
+      + '<div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">'
+      + '<input type="checkbox" style="cursor:pointer;width:16px;height:16px;accent-color:var(--accent);" '
+      + (isChecked ? 'checked ' : '')
+      + 'onchange="onToggleImportModelItem(' + i + ', this.checked)"/>'
+      + '<div style="min-width:0;flex:1;">'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+      + '<span style="font-size:13px;font-weight:600;color:var(--text-primary);font-family:monospace;word-break:break-all;">' + escapeHtml(m.id) + '</span>'
+      + tagExisting
+      + '</div>'
+      + (m.owned_by ? '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">所属：' + escapeHtml(m.owned_by) + '</div>' : '')
+      + '</div>'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">'
+      + '<select class="input" style="padding:3px 8px;font-size:12px;width:110px;" onchange="onChangeImportModelType(' + i + ', this.value)">'
+      + '<option value="text"' + (m.type === 'text' ? ' selected' : '') + '>📝 文本模型</option>'
+      + '<option value="image"' + (m.type === 'image' ? ' selected' : '') + '>🖼️ 图片模型</option>'
+      + '<option value="video"' + (m.type === 'video' ? ' selected' : '') + '>🎬 视频模型</option>'
+      + '</select>'
+      + '</div>'
+      + '</div>';
+  }
+
+  if (visibleCount === 0) {
+    html = '<div style="text-align:center;padding:30px;color:var(--text-secondary);font-size:13px;">无匹配模型，请尝试更换搜索关键字</div>';
+  }
+
+  box.innerHTML = html;
+
+  var sumEl = document.getElementById('importSummaryText');
+  if (sumEl) sumEl.textContent = '共获取到 ' + _fetchedRemoteModels.length + ' 个模型，已选择 ' + selectedCount + ' 个';
+
+  var btnConfirm = document.getElementById('btnConfirmImport');
+  if (btnConfirm) {
+    btnConfirm.disabled = (selectedCount === 0);
+    btnConfirm.style.opacity = (selectedCount === 0) ? '0.6' : '1';
+    btnConfirm.textContent = '📥 确认导入所选模型 (' + selectedCount + ')';
+  }
+}
+
+function onToggleImportModelItem(index, checked) {
+  if (_fetchedRemoteModels[index]) {
+    _fetchedRemoteModels[index].checked = checked;
+  }
+  updateImportSelectionSummary();
+}
+
+function onChangeImportModelType(index, type) {
+  if (_fetchedRemoteModels[index]) {
+    _fetchedRemoteModels[index].type = type;
+  }
+}
+
+function filterImportModels() {
+  renderImportModelsList();
+}
+
+function toggleSelectAllImportModels(checked) {
+  for (var i = 0; i < _fetchedRemoteModels.length; i++) {
+    _fetchedRemoteModels[i].checked = checked;
+  }
+  renderImportModelsList();
+}
+
+function updateImportSelectionSummary() {
+  var selectedCount = 0;
+  for (var i = 0; i < _fetchedRemoteModels.length; i++) {
+    if (_fetchedRemoteModels[i].checked !== false) selectedCount++;
+  }
+  var sumEl = document.getElementById('importSummaryText');
+  if (sumEl) sumEl.textContent = '共获取到 ' + _fetchedRemoteModels.length + ' 个模型，已选择 ' + selectedCount + ' 个';
+
+  var btnConfirm = document.getElementById('btnConfirmImport');
+  if (btnConfirm) {
+    btnConfirm.disabled = (selectedCount === 0);
+    btnConfirm.style.opacity = (selectedCount === 0) ? '0.6' : '1';
+    btnConfirm.textContent = '📥 确认导入所选模型 (' + selectedCount + ')';
+  }
+}
+
+async function confirmImportSelectedModels() {
+  var selected = [];
+  for (var i = 0; i < _fetchedRemoteModels.length; i++) {
+    if (_fetchedRemoteModels[i].checked !== false) {
+      selected.push(_fetchedRemoteModels[i]);
+    }
+  }
+
+  if (selected.length === 0) {
+    showToast('⚠️ 请至少勾选一个要导入的模型');
+    return;
+  }
+
+  var baseUrl = (document.getElementById('importBaseUrl').value || '').trim();
+  var apiKey = (document.getElementById('importApiKey').value || '').trim();
+  var protocol = (document.getElementById('importProtocol').value || 'OpenAI 兼容协议').trim();
+  var provider = (document.getElementById('importProvider').value || '').trim() || '自定义';
+
+  var chatUrl = _remoteSuggestedChatUrl || baseUrl;
+  if (!chatUrl.includes('/chat/completions') && !chatUrl.includes('/v1/chat/completions')) {
+    if (chatUrl.endsWith('/v1')) chatUrl += '/chat/completions';
+    else if (!chatUrl.endsWith('/models')) chatUrl += '/v1/chat/completions';
+  }
+
+  var currentModels = getModels();
+  var addedCount = 0;
+  var updatedCount = 0;
+
+  for (var j = 0; j < selected.length; j++) {
+    var sm = selected[j];
+    var slug = sm.id;
+    var type = sm.type || 'text';
+
+    var pClean = provider.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'model';
+    var sClean = slug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'custom';
+    var targetId = pClean + '-' + sClean;
+
+    var foundIndex = -1;
+    for (var mIdx = 0; mIdx < currentModels.length; mIdx++) {
+      if (currentModels[mIdx].id === targetId || currentModels[mIdx].model === slug) {
+        foundIndex = mIdx;
+        break;
+      }
+    }
+
+    var modelItem = {
+      id: targetId,
+      name: (provider ? provider + ' · ' : '') + slug,
+      provider: provider,
+      baseUrl: chatUrl,
+      protocol: protocol,
+      type: type,
+      model: slug,
+      status: 'active',
+      apiKey: apiKey
+    };
+
+    if (foundIndex >= 0) {
+      currentModels[foundIndex] = Object.assign(currentModels[foundIndex], modelItem);
+      updatedCount++;
+    } else {
+      currentModels.push(modelItem);
+      addedCount++;
+    }
+  }
+
+  saveModels(currentModels);
+  modelsCache = currentModels;
+
+  try {
+    await syncProjectConfig('models', { models: currentModels, deletedIds: getDeletedModelIds() });
+    closeImportModelsModal();
+    renderModelList();
+    if (typeof refreshAllModelPickers === 'function') refreshAllModelPickers();
+    showToast('🎉 成功导入 ' + (addedCount + updatedCount) + ' 个模型（新增 ' + addedCount + '，更新 ' + updatedCount + '）！配置已实时生效');
+  } catch (e) {
+    console.error('[ImportModelsSync]', e);
+    closeImportModelsModal();
+    renderModelList();
+    if (typeof refreshAllModelPickers === 'function') refreshAllModelPickers();
+    showToast('⚠️ 模型已成功导入浏览器本地，但持久化到服务器异常：' + ((e && e.message) || '未知错误'));
+  }
+}
+
+async function fetchModelsForEditModal() {
+  var baseUrl = (document.getElementById('modelEditBaseUrl').value || '').trim();
+  var apiKey = (document.getElementById('modelEditApiKey').value || '').trim();
+  var protocol = (document.getElementById('modelEditProtocol').value || 'OpenAI 兼容协议').trim();
+  var btn = document.getElementById('btnFetchSingleModels');
+  var input = document.getElementById('modelEditModel');
+
+  if (!baseUrl) {
+    showToast('⚠️ 请先填写上面的 Base URL');
+    return;
+  }
+
+  btn.disabled = true;
+  var origText = btn.textContent;
+  btn.textContent = '获取中...';
+
+  try {
+    var resp = await fetch('/api/models/fetch_remote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base_url: baseUrl, api_key: apiKey, protocol: protocol })
+    });
+    var data = await resp.json();
+    if (!resp.ok || !data.success) {
+      showToast('❌ 获取失败：' + ((data && data.error) || '未知错误'));
+      return;
+    }
+
+    var list = data.models || [];
+    if (list.length === 0) {
+      showToast('⚠️ 未从该端点找到可用模型');
+      return;
+    }
+
+    var datalistId = 'modelEditDatalist';
+    var dl = document.getElementById(datalistId);
+    if (!dl) {
+      dl = document.createElement('datalist');
+      dl.id = datalistId;
+      document.body.appendChild(dl);
+    }
+    var dlHtml = '';
+    for (var i = 0; i < list.length; i++) {
+      dlHtml += '<option value="' + escapeHtml(list[i].id) + '">' + escapeHtml(list[i].id) + ' (' + list[i].type + ')</option>';
+    }
+    dl.innerHTML = dlHtml;
+    input.setAttribute('list', datalistId);
+
+    if (!input.value && list[0]) {
+      input.value = list[0].id;
+    }
+
+    showToast('✅ 成功匹配 ' + list.length + ' 个模型！可直接从下拉提示中选择');
+  } catch (err) {
+    showToast('❌ 请求失败：' + ((err && err.message) || '网络异常'));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = origText;
+  }
+}
+
+
 // 弹窗关闭：点击背景
 document.getElementById('promptEditModal').addEventListener('click', function(e) {
   if (e.target === this) closePromptEdit();
@@ -12338,6 +12752,420 @@ async function deleteModel(id) {
   }
 }
 
+
+// ============ 大模型一键导入 (通过 API /v1/models 探测获取) ============
+
+var IMPORT_PRESETS = {
+  deepseek: {
+    provider: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com/v1',
+    protocol: 'OpenAI 兼容协议'
+  },
+  siliconflow: {
+    provider: 'SiliconFlow',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    protocol: 'OpenAI 兼容协议'
+  },
+  dashscope: {
+    provider: '阿里云通义千问',
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    protocol: 'OpenAI 兼容协议'
+  },
+  kimi: {
+    provider: '月之暗面 Kimi',
+    baseUrl: 'https://api.moonshot.cn/v1',
+    protocol: 'OpenAI 兼容协议'
+  },
+  zhipu: {
+    provider: '智谱清言 GLM',
+    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
+    protocol: 'OpenAI 兼容协议'
+  },
+  openai: {
+    provider: 'OpenAI',
+    baseUrl: 'https://api.openai.com/v1',
+    protocol: 'OpenAI 兼容协议'
+  },
+  oneapi: {
+    provider: 'OneAPI 中转',
+    baseUrl: 'https://api.openai.com/v1',
+    protocol: 'OpenAI 兼容协议'
+  },
+  ollama: {
+    provider: 'Ollama (本地)',
+    baseUrl: 'http://localhost:11434/v1',
+    protocol: 'OpenAI 兼容协议'
+  }
+};
+
+var _fetchedRemoteModels = [];
+var _remoteSuggestedChatUrl = '';
+
+function openImportModelsModal() {
+  var modal = document.getElementById('importModelsModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  var status = document.getElementById('importFetchStatus');
+  if (status) status.textContent = '';
+}
+
+function closeImportModelsModal() {
+  var modal = document.getElementById('importModelsModal');
+  if (!modal) return;
+  modal.style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function applyImportPreset(key) {
+  var p = IMPORT_PRESETS[key];
+  if (!p) return;
+  var bUrl = document.getElementById('importBaseUrl');
+  var prov = document.getElementById('importProvider');
+  var proto = document.getElementById('importProtocol');
+  if (bUrl) bUrl.value = p.baseUrl;
+  if (prov) prov.value = p.provider;
+  if (proto) proto.value = p.protocol;
+  var status = document.getElementById('importFetchStatus');
+  if (status) {
+    status.textContent = '已填充 ' + p.provider + ' 预设配置，请填写对应 API Key 后点击获取';
+    status.style.color = 'var(--accent-light)';
+  }
+}
+
+function toggleImportApiKeyVisibility() {
+  var inp = document.getElementById('importApiKey');
+  var btn = document.getElementById('toggleImportKeyBtn');
+  if (!inp || !btn) return;
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    btn.textContent = '🙈 隐藏';
+  } else {
+    inp.type = 'password';
+    btn.textContent = '👁 显示';
+  }
+}
+
+async function fetchRemoteModels() {
+  var baseUrl = (document.getElementById('importBaseUrl').value || '').trim();
+  var apiKey = (document.getElementById('importApiKey').value || '').trim();
+  var protocol = (document.getElementById('importProtocol').value || 'OpenAI 兼容协议').trim();
+  var provider = (document.getElementById('importProvider').value || '').trim();
+  var statusEl = document.getElementById('importFetchStatus');
+  var btn = document.getElementById('btnFetchRemoteModels');
+
+  if (!baseUrl) {
+    if (statusEl) { statusEl.textContent = '⚠️ 请先填写 Base URL'; statusEl.style.color = '#ef4444'; }
+    return;
+  }
+
+  btn.disabled = true;
+  var origHtml = btn.innerHTML;
+  btn.innerHTML = '<div style="width:12px;height:12px;border:2px solid rgba(255,255,255,0.3);border-top-color:currentColor;border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block;"></div> 正在拉取中...';
+  if (statusEl) { statusEl.textContent = '正在连接远端 API 获取模型列表...'; statusEl.style.color = 'var(--text-secondary)'; }
+
+  try {
+    var resp = await fetch('/api/models/fetch_remote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        base_url: baseUrl,
+        api_key: apiKey,
+        protocol: protocol
+      })
+    });
+    var data = await resp.json();
+
+    if (!resp.ok || !data.success) {
+      var errMsg = (data && data.error) || ('HTTP ' + resp.status);
+      if (statusEl) { statusEl.textContent = '❌ ' + errMsg; statusEl.style.color = '#ef4444'; }
+      return;
+    }
+
+    _fetchedRemoteModels = data.models || [];
+    _remoteSuggestedChatUrl = data.suggested_chat_endpoint || baseUrl;
+
+    if (!provider && data.detected_provider) {
+      document.getElementById('importProvider').value = data.detected_provider;
+    }
+
+    if (statusEl) {
+      statusEl.textContent = '✅ 成功获取 ' + _fetchedRemoteModels.length + ' 个模型';
+      statusEl.style.color = '#22c55e';
+    }
+
+    document.getElementById('importResultsPanel').style.display = 'flex';
+    renderImportModelsList();
+  } catch (err) {
+    if (statusEl) {
+      statusEl.textContent = '❌ 连接失败：' + ((err && err.message) || '网络错误');
+      statusEl.style.color = '#ef4444';
+    }
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = origHtml;
+  }
+}
+
+function renderImportModelsList() {
+  var box = document.getElementById('importModelsListBox');
+  if (!box) return;
+
+  var currentModels = getModels();
+  var existingSlugs = {};
+  for (var i = 0; i < currentModels.length; i++) {
+    if (currentModels[i].model) existingSlugs[currentModels[i].model.toLowerCase()] = true;
+    if (currentModels[i].id) existingSlugs[currentModels[i].id.toLowerCase()] = true;
+  }
+
+  var searchKw = (document.getElementById('importSearchInput').value || '').trim().toLowerCase();
+
+  var html = '';
+  var visibleCount = 0;
+  var selectedCount = 0;
+
+  for (var i = 0; i < _fetchedRemoteModels.length; i++) {
+    var m = _fetchedRemoteModels[i];
+    var idLower = m.id.toLowerCase();
+    if (searchKw && idLower.indexOf(searchKw) === -1 && (m.name || '').toLowerCase().indexOf(searchKw) === -1) {
+      continue;
+    }
+
+    visibleCount++;
+    var isChecked = m.checked !== false;
+    if (isChecked) selectedCount++;
+
+    var isExisting = !!existingSlugs[idLower];
+    var tagExisting = isExisting
+      ? '<span style="font-size:11px;background:rgba(234,179,8,0.15);color:#eab308;padding:2px 8px;border-radius:6px;border:1px solid rgba(234,179,8,0.3);">已在配置中</span>'
+      : '<span style="font-size:11px;background:rgba(34,197,94,0.15);color:#22c55e;padding:2px 8px;border-radius:6px;border:1px solid rgba(34,197,94,0.3);">新模型</span>';
+
+    html += '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;padding:10px 14px;transition:all 0.2s;">'
+      + '<div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">'
+      + '<input type="checkbox" style="cursor:pointer;width:16px;height:16px;accent-color:var(--accent);" '
+      + (isChecked ? 'checked ' : '')
+      + 'onchange="onToggleImportModelItem(' + i + ', this.checked)"/>'
+      + '<div style="min-width:0;flex:1;">'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'
+      + '<span style="font-size:13px;font-weight:600;color:var(--text-primary);font-family:monospace;word-break:break-all;">' + escapeHtml(m.id) + '</span>'
+      + tagExisting
+      + '</div>'
+      + (m.owned_by ? '<div style="font-size:11px;color:var(--text-secondary);margin-top:2px;">所属：' + escapeHtml(m.owned_by) + '</div>' : '')
+      + '</div>'
+      + '</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">'
+      + '<select class="input" style="padding:3px 8px;font-size:12px;width:110px;" onchange="onChangeImportModelType(' + i + ', this.value)">'
+      + '<option value="text"' + (m.type === 'text' ? ' selected' : '') + '>📝 文本模型</option>'
+      + '<option value="image"' + (m.type === 'image' ? ' selected' : '') + '>🖼️ 图片模型</option>'
+      + '<option value="video"' + (m.type === 'video' ? ' selected' : '') + '>🎬 视频模型</option>'
+      + '</select>'
+      + '</div>'
+      + '</div>';
+  }
+
+  if (visibleCount === 0) {
+    html = '<div style="text-align:center;padding:30px;color:var(--text-secondary);font-size:13px;">无匹配模型，请尝试更换搜索关键字</div>';
+  }
+
+  box.innerHTML = html;
+
+  var sumEl = document.getElementById('importSummaryText');
+  if (sumEl) sumEl.textContent = '共获取到 ' + _fetchedRemoteModels.length + ' 个模型，已选择 ' + selectedCount + ' 个';
+
+  var btnConfirm = document.getElementById('btnConfirmImport');
+  if (btnConfirm) {
+    btnConfirm.disabled = (selectedCount === 0);
+    btnConfirm.style.opacity = (selectedCount === 0) ? '0.6' : '1';
+    btnConfirm.textContent = '📥 确认导入所选模型 (' + selectedCount + ')';
+  }
+}
+
+function onToggleImportModelItem(index, checked) {
+  if (_fetchedRemoteModels[index]) {
+    _fetchedRemoteModels[index].checked = checked;
+  }
+  updateImportSelectionSummary();
+}
+
+function onChangeImportModelType(index, type) {
+  if (_fetchedRemoteModels[index]) {
+    _fetchedRemoteModels[index].type = type;
+  }
+}
+
+function filterImportModels() {
+  renderImportModelsList();
+}
+
+function toggleSelectAllImportModels(checked) {
+  for (var i = 0; i < _fetchedRemoteModels.length; i++) {
+    _fetchedRemoteModels[i].checked = checked;
+  }
+  renderImportModelsList();
+}
+
+function updateImportSelectionSummary() {
+  var selectedCount = 0;
+  for (var i = 0; i < _fetchedRemoteModels.length; i++) {
+    if (_fetchedRemoteModels[i].checked !== false) selectedCount++;
+  }
+  var sumEl = document.getElementById('importSummaryText');
+  if (sumEl) sumEl.textContent = '共获取到 ' + _fetchedRemoteModels.length + ' 个模型，已选择 ' + selectedCount + ' 个';
+
+  var btnConfirm = document.getElementById('btnConfirmImport');
+  if (btnConfirm) {
+    btnConfirm.disabled = (selectedCount === 0);
+    btnConfirm.style.opacity = (selectedCount === 0) ? '0.6' : '1';
+    btnConfirm.textContent = '📥 确认导入所选模型 (' + selectedCount + ')';
+  }
+}
+
+async function confirmImportSelectedModels() {
+  var selected = [];
+  for (var i = 0; i < _fetchedRemoteModels.length; i++) {
+    if (_fetchedRemoteModels[i].checked !== false) {
+      selected.push(_fetchedRemoteModels[i]);
+    }
+  }
+
+  if (selected.length === 0) {
+    showToast('⚠️ 请至少勾选一个要导入的模型');
+    return;
+  }
+
+  var baseUrl = (document.getElementById('importBaseUrl').value || '').trim();
+  var apiKey = (document.getElementById('importApiKey').value || '').trim();
+  var protocol = (document.getElementById('importProtocol').value || 'OpenAI 兼容协议').trim();
+  var provider = (document.getElementById('importProvider').value || '').trim() || '自定义';
+
+  var chatUrl = _remoteSuggestedChatUrl || baseUrl;
+  if (!chatUrl.includes('/chat/completions') && !chatUrl.includes('/v1/chat/completions')) {
+    if (chatUrl.endsWith('/v1')) chatUrl += '/chat/completions';
+    else if (!chatUrl.endsWith('/models')) chatUrl += '/v1/chat/completions';
+  }
+
+  var currentModels = getModels();
+  var addedCount = 0;
+  var updatedCount = 0;
+
+  for (var j = 0; j < selected.length; j++) {
+    var sm = selected[j];
+    var slug = sm.id;
+    var type = sm.type || 'text';
+
+    var pClean = provider.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'model';
+    var sClean = slug.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'custom';
+    var targetId = pClean + '-' + sClean;
+
+    var foundIndex = -1;
+    for (var mIdx = 0; mIdx < currentModels.length; mIdx++) {
+      if (currentModels[mIdx].id === targetId || currentModels[mIdx].model === slug) {
+        foundIndex = mIdx;
+        break;
+      }
+    }
+
+    var modelItem = {
+      id: targetId,
+      name: (provider ? provider + ' · ' : '') + slug,
+      provider: provider,
+      baseUrl: chatUrl,
+      protocol: protocol,
+      type: type,
+      model: slug,
+      status: 'active',
+      apiKey: apiKey
+    };
+
+    if (foundIndex >= 0) {
+      currentModels[foundIndex] = Object.assign(currentModels[foundIndex], modelItem);
+      updatedCount++;
+    } else {
+      currentModels.push(modelItem);
+      addedCount++;
+    }
+  }
+
+  saveModels(currentModels);
+  modelsCache = currentModels;
+
+  try {
+    await syncProjectConfig('models', { models: currentModels, deletedIds: getDeletedModelIds() });
+    closeImportModelsModal();
+    renderModelList();
+    if (typeof refreshAllModelPickers === 'function') refreshAllModelPickers();
+    showToast('🎉 成功导入 ' + (addedCount + updatedCount) + ' 个模型（新增 ' + addedCount + '，更新 ' + updatedCount + '）！配置已实时生效');
+  } catch (e) {
+    console.error('[ImportModelsSync]', e);
+    closeImportModelsModal();
+    renderModelList();
+    if (typeof refreshAllModelPickers === 'function') refreshAllModelPickers();
+    showToast('⚠️ 模型已成功导入浏览器本地，但持久化到服务器异常：' + ((e && e.message) || '未知错误'));
+  }
+}
+
+async function fetchModelsForEditModal() {
+  var baseUrl = (document.getElementById('modelEditBaseUrl').value || '').trim();
+  var apiKey = (document.getElementById('modelEditApiKey').value || '').trim();
+  var protocol = (document.getElementById('modelEditProtocol').value || 'OpenAI 兼容协议').trim();
+  var btn = document.getElementById('btnFetchSingleModels');
+  var input = document.getElementById('modelEditModel');
+
+  if (!baseUrl) {
+    showToast('⚠️ 请先填写上面的 Base URL');
+    return;
+  }
+
+  btn.disabled = true;
+  var origText = btn.textContent;
+  btn.textContent = '获取中...';
+
+  try {
+    var resp = await fetch('/api/models/fetch_remote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ base_url: baseUrl, api_key: apiKey, protocol: protocol })
+    });
+    var data = await resp.json();
+    if (!resp.ok || !data.success) {
+      showToast('❌ 获取失败：' + ((data && data.error) || '未知错误'));
+      return;
+    }
+
+    var list = data.models || [];
+    if (list.length === 0) {
+      showToast('⚠️ 未从该端点找到可用模型');
+      return;
+    }
+
+    var datalistId = 'modelEditDatalist';
+    var dl = document.getElementById(datalistId);
+    if (!dl) {
+      dl = document.createElement('datalist');
+      dl.id = datalistId;
+      document.body.appendChild(dl);
+    }
+    var dlHtml = '';
+    for (var i = 0; i < list.length; i++) {
+      dlHtml += '<option value="' + escapeHtml(list[i].id) + '">' + escapeHtml(list[i].id) + ' (' + list[i].type + ')</option>';
+    }
+    dl.innerHTML = dlHtml;
+    input.setAttribute('list', datalistId);
+
+    if (!input.value && list[0]) {
+      input.value = list[0].id;
+    }
+
+    showToast('✅ 成功匹配 ' + list.length + ' 个模型！可直接从下拉提示中选择');
+  } catch (err) {
+    showToast('❌ 请求失败：' + ((err && err.message) || '网络异常'));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = origText;
+  }
+}
+
+
 // 弹窗关闭：点击背景
 document.getElementById('modelEditModal').addEventListener('click', function(e) {
   if (e.target === this) closeModelEdit();
@@ -12499,3 +13327,18 @@ if (typeof vcGenerateVideo === 'function') window.vcGenerateVideo = vcGenerateVi
 if (typeof vcHandleRefUpload === 'function') window.vcHandleRefUpload = vcHandleRefUpload;
 if (typeof vcSaveStoryboard === 'function') window.vcSaveStoryboard = vcSaveStoryboard;
 if (typeof viewFullImage === 'function') window.viewFullImage = viewFullImage;
+
+
+if (typeof openImportModelsModal === 'function') window.openImportModelsModal = openImportModelsModal;
+if (typeof closeImportModelsModal === 'function') window.closeImportModelsModal = closeImportModelsModal;
+if (typeof applyImportPreset === 'function') window.applyImportPreset = applyImportPreset;
+if (typeof toggleImportApiKeyVisibility === 'function') window.toggleImportApiKeyVisibility = toggleImportApiKeyVisibility;
+if (typeof fetchRemoteModels === 'function') window.fetchRemoteModels = fetchRemoteModels;
+if (typeof renderImportModelsList === 'function') window.renderImportModelsList = renderImportModelsList;
+if (typeof onToggleImportModelItem === 'function') window.onToggleImportModelItem = onToggleImportModelItem;
+if (typeof onChangeImportModelType === 'function') window.onChangeImportModelType = onChangeImportModelType;
+if (typeof filterImportModels === 'function') window.filterImportModels = filterImportModels;
+if (typeof toggleSelectAllImportModels === 'function') window.toggleSelectAllImportModels = toggleSelectAllImportModels;
+if (typeof updateImportSelectionSummary === 'function') window.updateImportSelectionSummary = updateImportSelectionSummary;
+if (typeof confirmImportSelectedModels === 'function') window.confirmImportSelectedModels = confirmImportSelectedModels;
+if (typeof fetchModelsForEditModal === 'function') window.fetchModelsForEditModal = fetchModelsForEditModal;

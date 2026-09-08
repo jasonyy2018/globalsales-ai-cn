@@ -2,10 +2,16 @@
 <div class="section-header">
 <h2 data-i18n="models.title">🤖 大模型配置</h2>
 <p data-i18n="models.subtitle">展示当前平台接入的所有大模型及其配置信息，支持查看详情和修改配置</p>
-<button class="btn btn-primary" onclick="openAddModel()" style="margin-top:12px;">
+<div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+<button class="btn btn-primary" onclick="openAddModel()">
 <svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="16"><line x1="12" x2="12" y1="5" y2="19"></line><line x1="5" x2="19" y1="12" y2="12"></line></svg>
 <span data-i18n="models.btn.add">添加模型</span>
 </button>
+<button class="btn btn-outline" onclick="openImportModelsModal()" style="border-color:var(--accent);color:var(--accent-light);display:inline-flex;align-items:center;gap:6px;">
+<svg fill="none" height="16" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24" width="16"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
+<span>⚡ 通过 API 一键导入</span>
+</button>
+</div>
 </div>
 <div id="modelList" style="display:flex;flex-direction:column;gap:16px;"></div>
 <div class="empty-state" id="modelEmpty" style="display:none;">
@@ -53,7 +59,10 @@
 </div>
 <div>
 <label data-i18n="models.f.modelslug" style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">模型 slug（API 请求里的 model 字段）</label>
-<input class="input" id="modelEditModel" placeholder="e.g. gpt-4o / claude-opus-4-8 / ark-code-latest"/>
+<div style="display:flex;gap:8px;align-items:center;">
+<input class="input" id="modelEditModel" placeholder="e.g. gpt-4o / deepseek-chat / ark-code-latest" style="flex:1;"/>
+<button class="btn btn-outline btn-sm" id="btnFetchSingleModels" onclick="fetchModelsForEditModal()" style="white-space:nowrap;font-size:12px;" title="根据 Base URL 和 Key 拉取可用模型列表" type="button">🔍 获取</button>
+</div>
 </div>
 <div>
 <label data-i18n="models.f.status" style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">状态</label>
@@ -77,6 +86,92 @@
 <button class="btn btn-outline btn-sm" data-i18n="models.modal.test" id="btnTestModel" onclick="testModelConnection()">🔌 测试连接</button>
 <button class="btn btn-outline btn-sm" data-i18n="common.btn.cancel" onclick="closeModelEdit()">取消</button>
 <button class="btn btn-primary btn-sm" data-i18n="common.btn.save" onclick="saveModelEdit()">💾 保存</button>
+</div>
+</div>
+</div>
+</div>
+<!-- 通过 API 一键导入模型弹窗 -->
+<div id="importModelsModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(8px);z-index:1000;align-items:center;justify-content:center;overflow-y:auto;padding:16px;">
+<div style="background:var(--bg-secondary);border:1px solid var(--border-strong, #334155);border-radius:18px;padding:26px;width:94%;max-width:760px;box-shadow:0 24px 70px rgba(0,0,0,0.6);margin:auto;max-height:92vh;display:flex;flex-direction:column;">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-shrink:0;">
+<div style="display:flex;align-items:center;gap:10px;">
+<div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#a855f7);display:flex;align-items:center;justify-content:center;font-size:18px;">⚡</div>
+<div>
+<h3 style="font-size:18px;font-weight:700;color:var(--text-primary);margin:0;">通过 API 一键导入大模型</h3>
+<p style="font-size:12px;color:var(--text-secondary);margin:3px 0 0;">通过服务商 /v1/models 接口自动探测并批量导入可用模型</p>
+</div>
+</div>
+<button onclick="closeImportModelsModal()" style="background:none;border:none;color:var(--text-secondary);cursor:pointer;font-size:22px;padding:4px 8px;line-height:1;">✕</button>
+</div>
+<div style="margin-bottom:16px;flex-shrink:0;">
+<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;display:flex;align-items:center;gap:6px;">
+<span>快捷填充主流服务商预设：</span>
+</div>
+<div style="display:flex;gap:6px;flex-wrap:wrap;">
+<button class="btn btn-outline btn-sm" onclick="applyImportPreset('deepseek')" style="padding:3px 10px;font-size:12px;" type="button">🌟 DeepSeek</button>
+<button class="btn btn-outline btn-sm" onclick="applyImportPreset('siliconflow')" style="padding:3px 10px;font-size:12px;" type="button">🚀 硅基流动</button>
+<button class="btn btn-outline btn-sm" onclick="applyImportPreset('dashscope')" style="padding:3px 10px;font-size:12px;" type="button">⚡ 通义千问</button>
+<button class="btn btn-outline btn-sm" onclick="applyImportPreset('kimi')" style="padding:3px 10px;font-size:12px;" type="button">🌙 月之暗面</button>
+<button class="btn btn-outline btn-sm" onclick="applyImportPreset('zhipu')" style="padding:3px 10px;font-size:12px;" type="button">智谱清言</button>
+<button class="btn btn-outline btn-sm" onclick="applyImportPreset('openai')" style="padding:3px 10px;font-size:12px;" type="button">🤖 OpenAI</button>
+<button class="btn btn-outline btn-sm" onclick="applyImportPreset('oneapi')" style="padding:3px 10px;font-size:12px;" type="button">🔄 OneAPI/NewAPI</button>
+<button class="btn btn-outline btn-sm" onclick="applyImportPreset('ollama')" style="padding:3px 10px;font-size:12px;" type="button">🦙 Ollama本地</button>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;background:var(--bg-tertiary);padding:14px;border-radius:12px;border:1px solid var(--border);flex-shrink:0;">
+<div style="grid-column:1 / -1;">
+<label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">Base URL <span style="color:#ef4444;">*</span></label>
+<input class="input" id="importBaseUrl" placeholder="https://api.deepseek.com/v1" style="width:100%;font-family:monospace;font-size:13px;"/>
+<div style="font-size:11px;color:var(--text-secondary);margin-top:3px;">输入服务商根地址即可，如 https://api.deepseek.com/v1，系统将自动访问 /models 探测端点</div>
+</div>
+<div style="grid-column:1 / -1;">
+<label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">API Key（本地 Ollama 可不填）</label>
+<div style="display:flex;gap:8px;">
+<input class="input" id="importApiKey" placeholder="sk-..." style="flex:1;font-family:monospace;font-size:13px;" type="password"/>
+<button class="btn btn-outline btn-sm" id="toggleImportKeyBtn" onclick="toggleImportApiKeyVisibility()" style="white-space:nowrap;" type="button">👁 显示</button>
+</div>
+</div>
+<div>
+<label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">厂商名称 / Provider</label>
+<input class="input" id="importProvider" placeholder="e.g. DeepSeek" style="width:100%;"/>
+</div>
+<div>
+<label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">接口协议</label>
+<select class="input" id="importProtocol" style="width:100%;">
+<option value="OpenAI 兼容协议">OpenAI 兼容协议</option>
+<option value="Anthropic Messages API">Anthropic Messages API</option>
+</select>
+</div>
+<div style="grid-column:1 / -1;display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+<div id="importFetchStatus" style="font-size:12px;color:var(--text-secondary);"></div>
+<button class="btn btn-primary btn-sm" id="btnFetchRemoteModels" onclick="fetchRemoteModels()" style="display:flex;align-items:center;gap:6px;" type="button">
+<span>🔍 获取可用模型列表</span>
+</button>
+</div>
+</div>
+<div id="importResultsPanel" style="display:none;flex:1;min-height:240px;overflow:hidden;flex-direction:column;border:1px solid var(--border);border-radius:12px;background:var(--bg-tertiary);">
+<div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;background:rgba(255,255,255,0.02);flex-shrink:0;">
+<div style="display:flex;align-items:center;gap:12px;">
+<label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;font-weight:600;">
+<input checked="" id="importSelectAll" onchange="toggleSelectAllImportModels(this.checked)" style="cursor:pointer;width:16px;height:16px;accent-color:var(--accent);" type="checkbox"/>
+<span>全选</span>
+</label>
+<span id="importSummaryText" style="font-size:12px;color:var(--text-secondary);">共获取到 0 个模型，已选 0 个</span>
+</div>
+<div style="position:relative;width:240px;">
+<input class="input" id="importSearchInput" oninput="filterImportModels()" placeholder="🔍 快速搜索模型名称..." style="width:100%;padding:4px 8px;font-size:12px;"/>
+</div>
+</div>
+<div id="importModelsListBox" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;max-height:360px;">
+</div>
+</div>
+<div style="display:flex;justify-content:space-between;align-items:center;margin-top:18px;flex-shrink:0;">
+<span id="importHintText" style="font-size:12px;color:var(--text-secondary);">导入后模型将保存至配置中，可在创作与问答模块直接调用</span>
+<div style="display:flex;gap:8px;">
+<button class="btn btn-outline btn-sm" onclick="closeImportModelsModal()" type="button">取消</button>
+<button class="btn btn-primary btn-sm" disabled="" id="btnConfirmImport" onclick="confirmImportSelectedModels()" style="opacity:0.6;" type="button">
+📥 确认导入所选模型 (0)
+</button>
 </div>
 </div>
 </div>
