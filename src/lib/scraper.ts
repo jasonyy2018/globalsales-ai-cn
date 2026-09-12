@@ -144,13 +144,24 @@ export async function searchWeb(query: string, count: number = 10): Promise<WebS
 }
 
 export function detectAntiBot(html: string): boolean {
-  if (html.length < 2000) return true;
+  if (!html) return true;
   const lower = html.toLowerCase();
   const patterns = [
+    "api-services-support@amazon.com",
+    "/errors/validatecaptcha",
+    "enter the characters you see below",
+    "type the characters you see in this image",
+    "robot check",
+    "to discuss automated access to amazon data",
+    "captcha-container",
+    "cf-browser-verification",
+    "just a moment...",
+    "checking your browser before accessing",
+    "access to this page has been denied",
+    "pardon our interruption",
     "verify you are human",
     "security verification",
     "waf",
-    "cf-browser-verification",
     "challenge-running",
     "机器人验证",
     "请输入验证码",
@@ -159,7 +170,64 @@ export function detectAntiBot(html: string): boolean {
     "安全验证",
     "拖动滑块",
   ];
-  return patterns.some((p) => lower.includes(p));
+  if (patterns.some((p) => lower.includes(p))) {
+    return true;
+  }
+  if (html.length < 20000) {
+    const signals = ["producttitle", "og:title", "application/ld+json", "add-to-cart", 'itemprop="price"'];
+    if (!signals.some((s) => lower.includes(s))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function parseDangdang(html: string, url: string): { title: string; images: string[]; bullets: string[]; description: string } {
+  let title = "";
+  const h1Match = html.match(/<h1[^>]*>([\s\S]{0,400}?)<\/h1>/i);
+  if (h1Match) {
+    let t = h1Match[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    t = t.replace(/^[《(](.*?)[》)]$/, "$1").trim();
+    t = t.split("_")[0].trim();
+    if (t) title = t;
+  }
+
+  const pidMatch = url.match(/\/(\d{7,10})\.html/);
+  const pid = pidMatch ? pidMatch[1] : "";
+  const images: string[] = [];
+  const seenImgs = new Set<string>();
+  const imgRegex = /(?:https?:)?\/\/(img\d+m?\d*\.ddimg\.cn\/[^\s"'\\)<>]+\.(?:jpg|jpeg|png|webp))/gi;
+  let imgM: RegExpExecArray | null;
+  while ((imgM = imgRegex.exec(html)) !== null) {
+    let p = imgM[1];
+    if (p.includes("${")) continue;
+    if (pid && !p.includes(pid)) continue;
+    p = p.replace(/-(\d+)_[a-z]_/i, "-$1_u_");
+    if (!seenImgs.has(p)) {
+      seenImgs.add(p);
+      images.push("https://" + p);
+      if (images.length >= 8) break;
+    }
+  }
+
+  const bullets: string[] = [];
+  const blkMatch = html.match(/id=["']detail_describe["'][^>]*>([\s\S]{0,4000}?)(?:快速直达|价格说明|本商品暂无详情)/i);
+  if (blkMatch) {
+    const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
+    let liM: RegExpExecArray | null;
+    while ((liM = liRegex.exec(blkMatch[1])) !== null) {
+      let text = liM[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      if (!text || text.length < 3 || text.length > 120) continue;
+      if (text.includes("所属分类")) continue;
+      if (/^品牌\s*[:：]/.test(text)) continue;
+      if (!bullets.includes(text)) {
+        bullets.push(text);
+      }
+    }
+  }
+
+  let description = bullets.length ? bullets.slice(0, 6).join(" · ") : title;
+  return { title, images, bullets: bullets.slice(0, 10), description };
 }
 
 export async function scrapeProduct(url: string): Promise<ScrapeProductResult> {
@@ -173,12 +241,52 @@ export async function scrapeProduct(url: string): Promise<ScrapeProductResult> {
     };
   }
 
-  const html = await res.text();
+  const buf = Buffer.from(await res.arrayBuffer());
+  const ctype = res.headers.get("content-type") || "";
+  const charsetMatch = ctype.match(/charset=([\w\-]+)/i);
+  let charset = (charsetMatch ? charsetMatch[1] : "utf-8").toLowerCase();
+  if (charset === "gb2312") charset = "gbk";
+
+  let html: string;
+  try {
+    html = new TextDecoder(charset).decode(buf);
+  } catch {
+    html = new TextDecoder("utf-8").decode(buf);
+  }
+
+  // Check if meta tag specifies a different charset
+  const metaCharsetMatch = html.match(/<meta[^>]+charset=["']?([\w\-]+)/i);
+  if (metaCharsetMatch && metaCharsetMatch[1]) {
+    const metaCharset = metaCharsetMatch[1].toLowerCase();
+    if (metaCharset !== charset && (metaCharset === "gbk" || metaCharset === "gb2312" || metaCharset === "gb18030")) {
+      try {
+        html = new TextDecoder("gbk").decode(buf);
+      } catch {}
+    }
+  }
+
   if (detectAntiBot(html)) {
     return {
       success: false,
       antibot: true,
       error: "目标站点返回了反爬/验证码页面，未能抓取到商品正文。建议直接手工粘贴商品详情。",
+    };
+  }
+
+  const host = new URL(url).hostname.toLowerCase();
+
+  // Dangdang specialized branch
+  if (host.includes("dangdang.com")) {
+    const dd = parseDangdang(html, url);
+    return {
+      success: true,
+      title: dd.title,
+      price: "¥ --",
+      images: dd.images,
+      bullets: dd.bullets,
+      description: dd.description,
+      url,
+      platform: "当当网",
     };
   }
 
@@ -232,7 +340,7 @@ export async function scrapeProduct(url: string): Promise<ScrapeProductResult> {
   // Fallback body images
   if (images.length < 3) {
     $("img").each((_, el) => {
-      if (images.length >= 6) return false;
+      if (images.length >= 8) return false;
       const src = $(el).attr("src") || $(el).attr("data-src") || $(el).attr("data-origin");
       if (src && src.startsWith("http") && !src.includes("logo") && !src.includes("icon")) {
         if (!images.includes(src)) images.push(src);
@@ -245,7 +353,7 @@ export async function scrapeProduct(url: string): Promise<ScrapeProductResult> {
     $(".detail, #detail, .product-detail, .desc, .description")
       .find("p, li")
       .each((_, el) => {
-        if (bullets.length >= 5) return false;
+        if (bullets.length >= 8) return false;
         const text = $(el).text().trim();
         if (text.length > 8 && text.length < 150 && !bullets.includes(text)) {
           bullets.push(text);
@@ -257,9 +365,9 @@ export async function scrapeProduct(url: string): Promise<ScrapeProductResult> {
     success: true,
     title,
     price: price || "¥ --",
-    images,
-    bullets: bullets.slice(0, 5),
+    images: images.slice(0, 8),
+    bullets: bullets.slice(0, 8),
     url,
-    platform: new URL(url).hostname,
+    platform: host,
   };
 }

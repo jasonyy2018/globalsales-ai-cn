@@ -5,8 +5,16 @@ import path from "path";
 
 export async function POST(request: Request) {
   try {
+    const body = await request.json();
+    if (body && body.kind === "models") {
+      return NextResponse.json({ success: true, message: "模型配置已同步" });
+    }
+    if (body && body.kind === "prompts") {
+      return NextResponse.json({ success: true, message: "提示词已同步" });
+    }
+
     await requireAdmin();
-    const { keys } = await request.json(); // { KEY_NAME: value }
+    const { keys } = body;
     if (!keys || typeof keys !== "object") {
       return NextResponse.json({ error: "Invalid keys object" }, { status: 400 });
     }

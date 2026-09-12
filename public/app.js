@@ -801,9 +801,8 @@ var HY_IMAGE_URL = USE_PROXY ? '/api/hy_image' : 'https://tokenhub.tencentmaas.c
 // ============ 腾讯混元 HunyuanVideo API Configuration ============
 var HY_API_KEY = '';
 var HY_SUBMIT_URL = USE_PROXY ? '/api/hy_video_submit' : 'https://tokenhub.tencentmaas.com/v1/api/video/submit';
-var HY_QUERY_URL  = USE_PROXY ? '/api/hy_video_query'  : 'https://tokenhub.tencentmaas.com/v1/api/video/query';
-var selectedVideoModel = 'seedance-mini';  // 'seedance-mini' / 'agnes' / 'hunyuan' / 'minimax'，默认 Seedance 2 Mini
-var vcSelectedModel = 'seedance-mini';     // 视频创作页独立选择，与上面保持同步
+var selectedVideoModel = 'agnes';  // 'seedance-mini' / 'agnes' / 'hunyuan' / 'minimax'，默认 Agnes AI Video
+var vcSelectedModel = 'agnes';     // 视频创作页独立选择，与上面保持同步
 
 // ============ Seedance 2 Mini API Configuration (AggregateAPI) ============
 var SEEDANCE_MINI_API_KEY = '';
@@ -1347,7 +1346,7 @@ var DEFAULT_MODULE_MODELS = {
   'comment': 'ark-plan-text', 'reply': 'ark-plan-text', 'sourcing': 'ark-plan-text',
   'freeqa': 'ark-plan-text',
   'video-script': 'ark-plan-text', 'vc-script': 'ark-plan-text', 'image-prompt': 'ark-plan-text',
-  'image': 'ark-image', 'video': 'seedance-mini-video', 'video-create': 'seedance-mini-video'
+  'image': 'ark-image', 'video': 'agnes-video', 'video-create': 'agnes-video'
 };
 var MODULE_MODEL_TYPE = {
   'hotspot': 'text', 'article': 'text', 'text-studio': 'text', 'comment': 'text', 'reply': 'text',
@@ -1598,32 +1597,49 @@ function getPickerRenderModelId(moduleKey) {
 
 // ---- 自定义图片模型（OpenAI images 风格） ----
 async function _callCustomImageModel(cfg, prompt, n, refImageUrl) {
-  n = n || 1;
+  n = Math.max(1, Math.min(6, parseInt(n, 10) || 1));
   var isProxy = (window.location.protocol !== 'file:');
-  var reqBody = { model: cfg.model || 'gpt-image-1', prompt: prompt, n: n, size: '1024x1024' };
-  if (refImageUrl) reqBody.image = refImageUrl;
-  var url, headers, body;
-  if (isProxy) {
-    url = '/api/custom_model';
-    headers = { 'Content-Type': 'application/json' };
-    body = { url: cfg.baseUrl, method: 'POST', auth_type: 'bearer', auth_key: cfg.apiKey || '', body: reqBody };
-  } else {
-    url = cfg.baseUrl;
-    headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (cfg.apiKey || '') };
-    body = reqBody;
-  }
-  var resp = await fetch(url, { method: 'POST', headers: headers, body: JSON.stringify(body) });
-  if (!resp.ok) { var e = new Error((cfg.name || cfg.id) + ' HTTP ' + resp.status); e.status = resp.status; e.isRateLimit = (resp.status === 429); throw e; }
-  var data = await resp.json();
-  var urls = [];
-  if (data.data && Array.isArray(data.data)) {
-    for (var i = 0; i < data.data.length; i++) {
-      if (data.data[i].url) urls.push(data.data[i].url);
-      else if (data.data[i].b64_json) urls.push('data:image/png;base64,' + data.data[i].b64_json);
+  var fetchSingleBatch = async function() {
+    var reqBody = { model: cfg.model || 'gpt-image-1', prompt: prompt, n: n, size: '1024x1024' };
+    if (refImageUrl) reqBody.image = refImageUrl;
+    var url, headers, body;
+    if (isProxy) {
+      url = '/api/custom_model';
+      headers = { 'Content-Type': 'application/json' };
+      body = { url: cfg.baseUrl, method: 'POST', auth_type: 'bearer', auth_key: cfg.apiKey || '', body: reqBody };
+    } else {
+      url = cfg.baseUrl;
+      headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (cfg.apiKey || '') };
+      body = reqBody;
     }
+    var resp = await fetch(url, { method: 'POST', headers: headers, body: JSON.stringify(body) });
+    if (!resp.ok) { var e = new Error((cfg.name || cfg.id) + ' HTTP ' + resp.status); e.status = resp.status; e.isRateLimit = (resp.status === 429); throw e; }
+    var data = await resp.json();
+    var found = [];
+    if (data.data && Array.isArray(data.data)) {
+      for (var i = 0; i < data.data.length; i++) {
+        if (data.data[i].url) found.push(data.data[i].url);
+        else if (data.data[i].b64_json) found.push('data:image/png;base64,' + data.data[i].b64_json);
+      }
+    }
+    if (!found.length && data.image_urls) found = data.image_urls;
+    return found;
+  };
+
+  var urls = await fetchSingleBatch();
+  // 若厂商接口忽略 n 参数只返回了 1 张，并发补齐剩余张数
+  if (urls.length < n) {
+    var remain = n - urls.length;
+    var extraPromises = [];
+    for (var j = 0; j < remain; j++) {
+      extraPromises.push(fetchSingleBatch().catch(function() { return []; }));
+    }
+    var extraResults = await Promise.all(extraPromises);
+    extraResults.forEach(function(batch) {
+      if (Array.isArray(batch)) urls.push.apply(urls, batch);
+    });
   }
-  if (!urls.length && data.image_urls) urls = data.image_urls;
-  return urls;
+  return urls.slice(0, n);
 }
 
 var IMAGE_MODEL_BUILTIN = {
@@ -2253,6 +2269,8 @@ function scrollToSection(section) {
   // 用户中心）时导航栏会瞬间弹回顶部，刚点的那一项被滚出视口 —— 用户想连着点
   // 相邻的两项时得重新往下滚一次。导航栏保持在用户自己滚到的位置才对。
   if (section === 'video') { updateVideoSourceSelect(); }
+  if (section === 'comment') { if (typeof renderHotComments === 'function') renderHotComments(); }
+  if (section === 'reply') { if (typeof renderTrickyComments === 'function') renderTrickyComments(); }
   if (section === 'demo') { initDemoVideo(); } else { pauseDemoVideo(); }
 }
 
@@ -5190,23 +5208,16 @@ async function generateImages() {
 // 调用 Agnes AI 图片生成 API（支持参考图）
 async function callAgnesImage(prompt, num, refImageUrl) {
   num = Math.max(1, Math.min(6, parseInt(num, 10) || 1));
-  var allUrls = [];
-  
-  // Agnes 图像接口在部分模型上会忽略 n，只返回 1 张；这里按用户数量循环提交，保证选几张就生成几张
-  for (var reqIndex = 0; reqIndex < num; reqIndex++) {
+  var fetchSingle = async function(idx) {
     var bodyData = {
       prompt: prompt,
       n: 1,
       size: '1024x1024'
     };
-    
-    // 如果有参考图，添加到请求中
     if (refImageUrl) {
       bodyData.image = refImageUrl;
-      bodyData.image_weight = 0.7; // 参考图权重 0.7，保留 0.3 给提示词
-      console.log('🎨 使用参考图生成，权重:', bodyData.image_weight, '第', reqIndex + 1, '/', num, '张');
+      bodyData.image_weight = 0.7;
     }
-    
     var resp = await fetch(AGNES_IMAGE_URL, {
       method: 'POST',
       headers: {
@@ -5220,56 +5231,84 @@ async function callAgnesImage(prompt, num, refImageUrl) {
       throw new Error(err.error ? err.error.message : 'HTTP ' + resp.status);
     }
     var data = await resp.json();
+    var urls = [];
     if (data.data && data.data.length > 0) {
       for (var i = 0; i < data.data.length; i++) {
-        if (data.data[i].url) allUrls.push(data.data[i].url);
+        if (data.data[i].url) urls.push(data.data[i].url);
       }
     }
+    return urls;
+  };
+
+  var promises = [];
+  for (var reqIndex = 0; reqIndex < num; reqIndex++) {
+    promises.push(fetchSingle(reqIndex));
   }
+  var results = await Promise.allSettled(promises);
+  var allUrls = [];
+  var lastErr = null;
+  results.forEach(function(res, idx) {
+    if (res.status === 'fulfilled' && Array.isArray(res.value)) {
+      allUrls.push.apply(allUrls, res.value);
+    } else if (res.status === 'rejected') {
+      lastErr = res.reason;
+      console.warn('[callAgnesImage] 第 ' + (idx + 1) + '/' + num + ' 张失败:', res.reason && res.reason.message);
+    }
+  });
   if (allUrls.length > 0) return allUrls.slice(0, num);
-  throw new Error('Agnes AI: No images returned');
+  throw lastErr || new Error('Agnes AI: No images returned');
 }
 
 // 调用火山方舟 Seedream 文生图。
 // 这是当前唯一实测可用的图片模型，所以放在降级顺序**第一位**（见 IMAGE_MODEL_BUILTIN 附近）。
-// Seedream 不支持 n>1，按张数循环提交，和 callAgnesImage 一个套路。
+// Seedream 不支持 n>1，并发按张数提交，大幅缩短出图等待时间并确保张数准确。
 async function callArkImage(prompt, num, refImageUrl) {
   num = Math.max(1, Math.min(6, parseInt(num, 10) || 1));
+  var fetchSingle = async function(idx) {
+    var body = {
+      model: 'doubao-seedream-4-0-250828',
+      prompt: prompt,
+      size: '2K',
+      response_format: 'url',
+      watermark: false
+    };
+    if (refImageUrl) body.image_url = refImageUrl;
+    var resp = await fetch(ARK_IMAGE_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + ARK_API_KEY
+      },
+      body: JSON.stringify(body)
+    });
+    var data = await resp.json().catch(function() { return {}; });
+    if (!resp.ok || data.error) {
+      throw new Error((data.error && (data.error.message || data.error.code)) || 'Ark image HTTP ' + resp.status);
+    }
+    var urls = [];
+    if (data.data && data.data.length) {
+      for (var k = 0; k < data.data.length; k++) {
+        if (data.data[k].url) urls.push(data.data[k].url);
+      }
+    }
+    return urls;
+  };
+
+  var promises = [];
+  for (var i = 0; i < num; i++) {
+    promises.push(fetchSingle(i));
+  }
+  var results = await Promise.allSettled(promises);
   var urls = [];
   var lastErr = null;
-  for (var i = 0; i < num; i++) {
-    try {
-      var body = {
-        model: 'doubao-seedream-4-0-250828',
-        prompt: prompt,
-        size: '2K',
-        response_format: 'url',
-        watermark: false
-      };
-      if (refImageUrl) body.image_url = refImageUrl;
-      var resp = await fetch(ARK_IMAGE_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + ARK_API_KEY
-        },
-        body: JSON.stringify(body)
-      });
-      var data = await resp.json().catch(function() { return {}; });
-      if (!resp.ok || data.error) {
-        throw new Error((data.error && (data.error.message || data.error.code)) || 'Ark image HTTP ' + resp.status);
-      }
-      if (data.data && data.data.length) {
-        for (var k = 0; k < data.data.length; k++) {
-          if (data.data[k].url) urls.push(data.data[k].url);
-        }
-      }
-    } catch (e) {
-      // 单张失败不放弃剩下的：拿到 1 张也比 0 张好
-      lastErr = e;
-      console.warn('[callArkImage] 第 ' + (i + 1) + '/' + num + ' 张失败:', e && e.message);
+  results.forEach(function(res, idx) {
+    if (res.status === 'fulfilled' && Array.isArray(res.value)) {
+      urls.push.apply(urls, res.value);
+    } else if (res.status === 'rejected') {
+      lastErr = res.reason;
+      console.warn('[callArkImage] 第 ' + (idx + 1) + '/' + num + ' 张失败:', res.reason && res.reason.message);
     }
-  }
+  });
   if (urls.length) return urls.slice(0, num);
   throw lastErr || new Error('Ark Seedream: No images returned');
 }
@@ -5732,10 +5771,17 @@ function copyDerivedComment(idx) {
 }
 
 // 页面加载时渲染热门评论 + 棘手评论示例
-document.addEventListener('DOMContentLoaded', function() {
-  renderHotComments();
-  renderTrickyComments();
-});
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function() {
+    renderHotComments();
+    renderTrickyComments();
+  });
+} else {
+  setTimeout(function() {
+    renderHotComments();
+    renderTrickyComments();
+  }, 0);
+}
 
 // ============ 棘手评论回复 ============
 var currentPlatform = 'douyin';  // 默认调性：抖音（国内流量最大）
@@ -7075,9 +7121,22 @@ async function bootAppData() {
   } catch (e) { window._userPromptsCache = null; }
   try {
     var mr = await (await fetch('/api/data/models')).json();
-    // 模型：按用户隔离，不复用管理员默认。空数组就是空（新用户需自行添加）
-    window._userModelsCache = (mr && mr.success && Array.isArray(mr.models)) ? mr.models : [];
-  } catch (e) { window._userModelsCache = []; }
+    if (mr && mr.success && Array.isArray(mr.models) && mr.models.length > 0) {
+      window._userModelsCache = mr.models;
+    } else {
+      window._userModelsCache = JSON.parse(JSON.stringify(defaultModels));
+      saveModels(window._userModelsCache);
+    }
+  } catch (e) {
+    try {
+      var local = localStorage.getItem('gs_user_models');
+      if (local) {
+        var parsed = JSON.parse(local);
+        if (Array.isArray(parsed) && parsed.length > 0) window._userModelsCache = parsed;
+      }
+    } catch(err) {}
+    if (!window._userModelsCache) window._userModelsCache = JSON.parse(JSON.stringify(defaultModels));
+  }
   window._userModelsLoaded = true;
   try {
     var md = await (await fetch('/api/data/module_defaults')).json();
@@ -7106,6 +7165,8 @@ async function bootAppData() {
   if (typeof renderModelList === 'function') { try { renderModelList(); } catch(e){} }
   if (typeof initModelPickers === 'function') { try { initModelPickers(); } catch(e){} }
   renderAccounts();
+  if (typeof renderHotComments === 'function') { try { renderHotComments(); } catch(e){} }
+  if (typeof renderTrickyComments === 'function') { try { renderTrickyComments(); } catch(e){} }
   initIPStats();
   await loadAppData();          // 从 /api/data/appdata 拉当前用户资产快照
   renderAssetList();
@@ -9983,9 +10044,23 @@ async function generateVideo() {
     if (selectedVideoModel === 'hunyuan') {
       videoUrl = await callHunyuanVideo(videoPrompt, progressCb, durationSec, null, null);
     } else if (selectedVideoModel === 'agnes') {
-      videoUrl = await callAgnesVideo(videoPrompt, progressCb, durationSec, null, null);
+      try {
+        videoUrl = await callAgnesVideo(videoPrompt, progressCb, durationSec, null, null);
+      } catch (e) {
+        console.warn('Agnes video failed, attempting Seedance Mini fallback:', e);
+        if (progressCb) progressCb(1, 1, 'Agnes 暂不可用，自动切换 Seedance Mini 兜底生成...');
+        showToast('Agnes 暂不可用，已自动使用 Seedance 2 Mini 兜底');
+        videoUrl = await callSeedanceMiniVideo(videoPrompt, progressCb, durationSec, null, null);
+      }
     } else if (selectedVideoModel === 'agnes25') {
-      videoUrl = await callAgnesVideo25(videoPrompt, progressCb, durationSec, null, null);
+      try {
+        videoUrl = await callAgnesVideo25(videoPrompt, progressCb, durationSec, null, null);
+      } catch (e) {
+        console.warn('Agnes 2.5 video failed, attempting Seedance Mini fallback:', e);
+        if (progressCb) progressCb(1, 1, 'Agnes 2.5 暂不可用，自动切换 Seedance Mini 兜底生成...');
+        showToast('Agnes 2.5 暂不可用，已自动使用 Seedance 2 Mini 兜底');
+        videoUrl = await callSeedanceMiniVideo(videoPrompt, progressCb, durationSec, null, null);
+      }
     } else if (selectedVideoModel === 'seedance-mini') {
       videoUrl = await callSeedanceMiniVideo(videoPrompt, progressCb, durationSec, null, null);
     } else {
@@ -10159,10 +10234,23 @@ async function generateFullVideo() {
       try {
         var pc = (function(idx) { return function(poll, maxPoll, status) { var s = document.getElementById('seg-status-' + idx); if (s) s.textContent = '轮询 ' + poll + '/' + maxPoll; }; })(i);
         var vUrl;
-        // generateVideo 板块没有参考图功能，传 null
         if (selectedVideoModel === 'hunyuan') { vUrl = await callHunyuanVideo(segPrompt, pc, segDuration, null, null); }
-        else if (selectedVideoModel === 'agnes') { vUrl = await callAgnesVideo(segPrompt, pc, segDuration, null, null); }
-        else if (selectedVideoModel === 'agnes25') { vUrl = await callAgnesVideo25(segPrompt, pc, segDuration, null, null); }
+        else if (selectedVideoModel === 'agnes') {
+          try {
+            vUrl = await callAgnesVideo(segPrompt, pc, segDuration, null, null);
+          } catch (e) {
+            console.warn('Agnes segment ' + i + ' failed, falling back to Seedance Mini:', e);
+            vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, null);
+          }
+        }
+        else if (selectedVideoModel === 'agnes25') {
+          try {
+            vUrl = await callAgnesVideo25(segPrompt, pc, segDuration, null, null);
+          } catch (e) {
+            console.warn('Agnes 2.5 segment ' + i + ' failed, falling back to Seedance Mini:', e);
+            vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, null);
+          }
+        }
         else if (selectedVideoModel === 'seedance-mini') { vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, null); }
         else { vUrl = await callMiniMaxVideo(segPrompt, pc, segDuration, null, null); }
 
@@ -10375,7 +10463,16 @@ var bindCountdownTimer = null;
 // 社媒账号（仅管理员用）：缓存 + 后端持久化
 window._accountsCache = [];
 function loadAccounts() {
-  var list = window._accountsCache || [];
+  var list = (window._accountsCache && window._accountsCache.length) ? window._accountsCache : null;
+  if (!list) {
+    try {
+      var uKey = window.currentUser ? window.currentUser.username : 'anon';
+      var localStr = localStorage.getItem('gs_bound_accounts_' + uKey);
+      if (localStr) list = JSON.parse(localStr);
+    } catch(e) {}
+  }
+  list = list || [];
+
   // 就地迁移旧平台键。放在这里而不是渲染处：所有读账号的路径都过 loadAccounts，
   // 迁一次就够；渲染层再兜底就得每个用到 platform 的地方都写一遍。
   for (var i = 0; i < list.length; i++) {
@@ -10446,6 +10543,10 @@ function seedDemoAccountsIfNeeded() {
 
 function saveAccounts() {
   window._accountsCache = boundAccounts;
+  try {
+    var uKey = window.currentUser ? window.currentUser.username : 'anon';
+    localStorage.setItem('gs_bound_accounts_' + uKey, JSON.stringify(boundAccounts));
+  } catch(e) {}
   if (window.currentUser) {
     fetch('/api/data/accounts', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -10637,9 +10738,20 @@ function goBindStep3() {
   document.getElementById('btnBindComplete').style.opacity = '1';
   document.getElementById('btnBindComplete').onclick = function() { completeBind(); };
 
-  document.getElementById('qrCountdown').textContent = isEn
-    ? 'Click the button below to complete the mock binding'
-    : '点击下方按钮完成模拟绑定';
+  if (bindCountdownTimer) { clearInterval(bindCountdownTimer); bindCountdownTimer = null; }
+  var countdown = 3;
+  var cdEl = document.getElementById('qrCountdown');
+  if (cdEl) cdEl.textContent = isEn ? 'Authorizing... (' + countdown + 's)' : '模拟授权中（' + countdown + '秒）...';
+  bindCountdownTimer = setInterval(function() {
+    countdown--;
+    if (countdown > 0) {
+      if (cdEl) cdEl.textContent = isEn ? 'Authorizing... (' + countdown + 's)' : '模拟授权中（' + countdown + '秒）...';
+    } else {
+      if (bindCountdownTimer) { clearInterval(bindCountdownTimer); bindCountdownTimer = null; }
+      if (cdEl) cdEl.textContent = isEn ? '✓ Authorized' : '✓ 模拟授权完成';
+      completeBind();
+    }
+  }, 1000);
 }
 
 function completeBind() {
@@ -11198,9 +11310,23 @@ async function vcGenerateVideo() {
     if (vcSelectedModel === 'hunyuan') {
       videoUrl = await callHunyuanVideo(fullPrompt, onProgress, dur, null, vcRef);
     } else if (vcSelectedModel === 'agnes') {
-      videoUrl = await callAgnesVideo(fullPrompt, onProgress, dur, null, vcRef);
+      try {
+        videoUrl = await callAgnesVideo(fullPrompt, onProgress, dur, null, vcRef);
+      } catch (e) {
+        console.warn('Agnes video failed, attempting Seedance Mini fallback:', e);
+        if (onProgress) onProgress(1, 1, 'Agnes 暂不可用，自动切换 Seedance Mini 兜底生成...');
+        showToast('Agnes 暂不可用，已自动使用 Seedance 2 Mini 兜底');
+        videoUrl = await callSeedanceMiniVideo(fullPrompt, onProgress, dur, null, vcRef);
+      }
     } else if (vcSelectedModel === 'agnes25') {
-      videoUrl = await callAgnesVideo25(fullPrompt, onProgress, dur, null, vcRef);
+      try {
+        videoUrl = await callAgnesVideo25(fullPrompt, onProgress, dur, null, vcRef);
+      } catch (e) {
+        console.warn('Agnes 2.5 video failed, attempting Seedance Mini fallback:', e);
+        if (onProgress) onProgress(1, 1, 'Agnes 2.5 暂不可用，自动切换 Seedance Mini 兜底生成...');
+        showToast('Agnes 2.5 暂不可用，已自动使用 Seedance 2 Mini 兜底');
+        videoUrl = await callSeedanceMiniVideo(fullPrompt, onProgress, dur, null, vcRef);
+      }
     } else if (vcSelectedModel === 'seedance-mini') {
       videoUrl = await callSeedanceMiniVideo(fullPrompt, onProgress, dur, null, vcRef);
     } else {
@@ -11365,6 +11491,7 @@ function vcCancelStoryboardEdit() {
 }
 
 async function vcGenerateSegments() {
+  syncVideoModelFromPicker('video-create');  // 让下拉框选择驱动旧的状态变量
   var scriptText = document.getElementById('vcStoryboardView').textContent.trim();
   if (!scriptText) { showToast('⚠️ 请先生成分镜脚本'); return; }
 
@@ -11417,8 +11544,22 @@ async function vcGenerateSegments() {
       // 分镜视频同样携带参考图；若用户提供了，每张片段都引用同一张
       var vcRef = vcRefImageDataUrl;
       if (vcSelectedModel === 'hunyuan') { vUrl = await callHunyuanVideo(segPrompt, pc, segDuration, null, vcRef); }
-      else if (vcSelectedModel === 'agnes') { vUrl = await callAgnesVideo(segPrompt, pc, segDuration, null, vcRef); }
-      else if (vcSelectedModel === 'agnes25') { vUrl = await callAgnesVideo25(segPrompt, pc, segDuration, null, vcRef); }
+      else if (vcSelectedModel === 'agnes') {
+        try {
+          vUrl = await callAgnesVideo(segPrompt, pc, segDuration, null, vcRef);
+        } catch (e) {
+          console.warn('Agnes segment ' + i + ' failed, falling back to Seedance Mini:', e);
+          vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, vcRef);
+        }
+      }
+      else if (vcSelectedModel === 'agnes25') {
+        try {
+          vUrl = await callAgnesVideo25(segPrompt, pc, segDuration, null, vcRef);
+        } catch (e) {
+          console.warn('Agnes 2.5 segment ' + i + ' failed, falling back to Seedance Mini:', e);
+          vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, vcRef);
+        }
+      }
       else if (vcSelectedModel === 'seedance-mini') { vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, vcRef); }
       else { vUrl = await callMiniMaxVideo(segPrompt, pc, segDuration, null, vcRef); }
       if (vUrl) { okVideos.push({ url: vUrl, idx: i, seg: seg }); if (dot) { dot.style.background = '#10b981'; dot.style.animation = ''; } if (statusEl) statusEl.textContent = '✅'; }
@@ -12416,11 +12557,16 @@ function mergeModelDefaults(savedModels) {
 window._userModelsCache = null;
 
 function loadModels() {
-  // 已登录：模型完全按用户后端数据（可能为空），不注入默认，保证隔离
-  if (window._userModelsLoaded) {
-    return Array.isArray(window._userModelsCache) ? JSON.parse(JSON.stringify(window._userModelsCache)) : [];
+  if (window._userModelsLoaded && Array.isArray(window._userModelsCache) && window._userModelsCache.length > 0) {
+    return JSON.parse(JSON.stringify(window._userModelsCache));
   }
-  // 未登录/未加载：返回默认集（仅用于占位，不会被保存）
+  try {
+    var local = localStorage.getItem('gs_user_models');
+    if (local) {
+      var parsed = JSON.parse(local);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch(e) {}
   return JSON.parse(JSON.stringify(defaultModels));
 }
 
@@ -12451,6 +12597,8 @@ function getModelRuntimeConfig(id, fallback) {
 
 function saveModels(models) {
   window._userModelsCache = models;
+  try { localStorage.setItem('gs_user_models', JSON.stringify(models)); } catch(e) {}
+  modelsCache = models;
   if (window.currentUser) {
     fetch('/api/data/models', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

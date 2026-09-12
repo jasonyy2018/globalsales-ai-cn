@@ -11,6 +11,9 @@ export async function GET(request: Request) {
 
   try {
     const result = await scrapeProduct(url);
+    if (result.success) {
+      return NextResponse.json({ success: true, product: result });
+    }
     return NextResponse.json(result);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -28,9 +31,13 @@ export async function POST(request: Request) {
     }
 
     const result = await scrapeProduct(url);
+    if (result.success) {
+      return NextResponse.json({ success: true, product: result });
+    }
     return NextResponse.json(result);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ success: false, error: msg }, { status: 400 });
   }
 }
+
