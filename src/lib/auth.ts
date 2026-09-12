@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { cookies } from "next/headers";
-import { getDb, seedUserDefaultModels } from "./db";
+import { getDb } from "./db";
 import type { User, UserRole } from "@/types";
 
 export const COOKIE_NAME = "gs_session";

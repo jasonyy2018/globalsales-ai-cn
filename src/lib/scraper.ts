@@ -161,7 +161,8 @@ export function detectAntiBot(html: string): boolean {
     "pardon our interruption",
     "verify you are human",
     "security verification",
-    "waf",
+    "aliyun_waf_",
+    "waf-challenge",
     "challenge-running",
     "机器人验证",
     "请输入验证码",
@@ -173,8 +174,17 @@ export function detectAntiBot(html: string): boolean {
   if (patterns.some((p) => lower.includes(p))) {
     return true;
   }
-  if (html.length < 20000) {
-    const signals = ["producttitle", "og:title", "application/ld+json", "add-to-cart", 'itemprop="price"'];
+  if (html.length < 5000) {
+    const signals = [
+      "producttitle",
+      "og:title",
+      "application/ld+json",
+      "add-to-cart",
+      'itemprop="price"',
+      "product.php",
+      "dd_price",
+      "360buyimg",
+    ];
     if (!signals.some((s) => lower.includes(s))) {
       return true;
     }
@@ -182,58 +192,199 @@ export function detectAntiBot(html: string): boolean {
   return false;
 }
 
-function parseDangdang(html: string, url: string): { title: string; images: string[]; bullets: string[]; description: string } {
-  let title = "";
-  const h1Match = html.match(/<h1[^>]*>([\s\S]{0,400}?)<\/h1>/i);
-  if (h1Match) {
-    let t = h1Match[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-    t = t.replace(/^[《(](.*?)[》)]$/, "$1").trim();
-    t = t.split("_")[0].trim();
-    if (t) title = t;
+const MOBILE_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+};
+
+async function fetchWithTimeout(url: string, headers: HeadersInit, timeoutMs = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { headers, signal: controller.signal, redirect: "follow" });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function scrapeDangdang(url: string): Promise<ScrapeProductResult | null> {
+  let pid = "";
+  const m1 = url.match(/(?:pid=|\/)(\d{7,12})(?:\.html|\b)/i);
+  if (m1) pid = m1[1];
+  if (!pid) return null;
+
+  const mobileUrl = `https://m.dangdang.com/product.php?pid=${pid}`;
+  const imgUrl = `https://m.dangdang.com/product.php?ac=image&pid=${pid}`;
+
+  const [resMain, resImg] = await Promise.allSettled([
+    fetchWithTimeout(mobileUrl, MOBILE_HEADERS),
+    fetchWithTimeout(imgUrl, MOBILE_HEADERS),
+  ]);
+
+  let mainHtml = "";
+  let imgHtml = "";
+  if (resMain.status === "fulfilled" && resMain.value.ok) {
+    mainHtml = await resMain.value.text();
+  }
+  if (resImg.status === "fulfilled" && resImg.value.ok) {
+    imgHtml = await resImg.value.text();
   }
 
-  const pidMatch = url.match(/\/(\d{7,10})\.html/);
-  const pid = pidMatch ? pidMatch[1] : "";
+  if (!mainHtml) return null;
+
+  // Title
+  let title = "";
+  const titleM = mainHtml.match(/<title>([\s\S]*?)<\/title>/i);
+  if (titleM) {
+    title = titleM[1].replace(/-(?:家用电器|数码|服装|母婴|家居|图书|手机当当网|当当网).*$/gi, "").trim();
+  }
+  if (!title) {
+    const h1M = mainHtml.match(/<p class="apmd">([^<]+)<\/p>/i);
+    if (h1M) title = h1M[1].trim();
+  }
+
+  // Price
+  let price = "";
+  const ddPriceM = mainHtml.match(/当当价:\s*<\/span>\s*<span class="dd_price">\s*([0-9\.]+)/i);
+  if (ddPriceM) {
+    price = "¥ " + ddPriceM[1];
+  } else {
+    const mktPriceM = mainHtml.match(/市场价:\s*<span class="fcdelete">\s*([0-9\.]+)/i);
+    if (mktPriceM) price = "¥ " + mktPriceM[1];
+  }
+
+  // Images
   const images: string[] = [];
   const seenImgs = new Set<string>();
-  const imgRegex = /(?:https?:)?\/\/(img\d+m?\d*\.ddimg\.cn\/[^\s"'\\)<>]+\.(?:jpg|jpeg|png|webp))/gi;
-  let imgM: RegExpExecArray | null;
-  while ((imgM = imgRegex.exec(html)) !== null) {
-    let p = imgM[1];
-    if (p.includes("${")) continue;
-    if (pid && !p.includes(pid)) continue;
-    p = p.replace(/-(\d+)_[a-z]_/i, "-$1_u_");
-    if (!seenImgs.has(p)) {
-      seenImgs.add(p);
-      images.push("https://" + p);
-      if (images.length >= 8) break;
-    }
-  }
-
-  const bullets: string[] = [];
-  const blkMatch = html.match(/id=["']detail_describe["'][^>]*>([\s\S]{0,4000}?)(?:快速直达|价格说明|本商品暂无详情)/i);
-  if (blkMatch) {
-    const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
-    let liM: RegExpExecArray | null;
-    while ((liM = liRegex.exec(blkMatch[1])) !== null) {
-      let text = liM[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-      if (!text || text.length < 3 || text.length > 120) continue;
-      if (text.includes("所属分类")) continue;
-      if (/^品牌\s*[:：]/.test(text)) continue;
-      if (!bullets.includes(text)) {
-        bullets.push(text);
+  const searchHtml = imgHtml + " " + mainHtml;
+  const imgRe = /(?:src|data-original)=["']([^"']+)["']/gi;
+  let imgMatch: RegExpExecArray | null;
+  while ((imgMatch = imgRe.exec(searchHtml)) !== null) {
+    let src = imgMatch[1];
+    if (src.includes("ddimg.cn") && src.includes(pid)) {
+      if (src.startsWith("//")) src = "https:" + src;
+      else if (src.startsWith("http://")) src = src.replace("http://", "https://");
+      src = src.replace(/_[a-z]\.jpg/i, "_u.jpg");
+      if (!seenImgs.has(src)) {
+        seenImgs.add(src);
+        images.push(src);
       }
     }
   }
 
-  let description = bullets.length ? bullets.slice(0, 6).join(" · ") : title;
-  return { title, images, bullets: bullets.slice(0, 10), description };
+  // Bullets & Description
+  const bullets: string[] = [];
+  const introM = mainHtml.match(/简介:<\/a>\s*([\s\S]*?)(?:详情|<\/p>)/i);
+  if (introM) {
+    const rawIntro = introM[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    const parts = rawIntro.split(/(品牌：|型号：|折叠：|档位：|风型：|功率：|适用：|作者：|出版社：|出版时间：|页数：)/g);
+    for (let i = 1; i < parts.length; i += 2) {
+      const key = parts[i];
+      const val = (parts[i + 1] || "").trim();
+      if (key && val) {
+        bullets.push(key + val);
+      }
+    }
+    if (bullets.length === 0 && rawIntro) {
+      bullets.push(rawIntro);
+    }
+  }
+
+  const description = bullets.length ? bullets.join(" · ") : title;
+
+  return {
+    success: true,
+    title: title || `当当商品 ${pid}`,
+    price: price || "¥ --",
+    images: images.slice(0, 8),
+    bullets: bullets.slice(0, 8),
+    description,
+    url,
+    platform: "当当网",
+  };
+}
+
+async function scrapeJd(url: string): Promise<ScrapeProductResult | null> {
+  let skuId = "";
+  const m = url.match(/(?:product\/|\/)(\d{6,14})(?:\.html|\b)/i);
+  if (m) skuId = m[1];
+  if (!skuId) return null;
+
+  const targetUrl = `https://item.m.jd.com/product/${skuId}.html`;
+  const res = await fetchWithTimeout(targetUrl, MOBILE_HEADERS);
+  if (!res.ok) return null;
+  const buf = Buffer.from(await res.arrayBuffer());
+  // 京东移动端偶发 GBK 编码响应，UTF-8 硬解会得到乱码标题
+  let html: string;
+  try {
+    html = new TextDecoder("utf-8").decode(buf);
+  } catch {
+    html = new TextDecoder("gbk").decode(buf);
+  }
+  if (!html.includes("<title") && !html.includes("360buyimg")) {
+    try { html = new TextDecoder("gbk").decode(buf); } catch {}
+  }
+
+  let title = "";
+  const titleM = html.match(/<title>([\s\S]*?)<\/title>/i);
+  if (titleM) {
+    title = titleM[1].replace(/【需预约购买】|【图片 价格 品牌 评论】-京东|-京东.*$/gi, "").trim();
+  }
+
+  const images: string[] = [];
+  const re = /(?:https?:)?\/\/(m\.360buyimg\.com\/[^\s"'<>]+\.(?:jpg|jpeg|png|webp))/gi;
+  let imgM: RegExpExecArray | null;
+  while ((imgM = re.exec(html)) !== null) {
+    const u = "https://" + imgM[1];
+    if (!images.includes(u) && !u.includes("logo") && !u.includes("icon")) {
+      images.push(u);
+      if (images.length >= 8) break;
+    }
+  }
+
+  let price = "";
+  const priceM = html.match(/"p"\s*:\s*"([0-9\.]+)"/i) || html.match(/<span class="price"[^>]*>([0-9\.]+)/i);
+  if (priceM) price = "¥ " + priceM[1];
+
+  const bullets: string[] = [];
+  if (title) bullets.push(title);
+
+  return {
+    success: true,
+    title: title || `京东商品 ${skuId}`,
+    price: price || "¥ --",
+    images,
+    bullets,
+    description: title,
+    url,
+    platform: "京东",
+  };
 }
 
 export async function scrapeProduct(url: string): Promise<ScrapeProductResult> {
   await assertPublicUrl(url);
 
-  const res = await fetch(url, { headers: CHROME_HEADERS, redirect: "follow" });
+  const host = new URL(url).hostname.toLowerCase();
+
+  // 1. Specialized handlers for major e-commerce platforms
+  if (host.includes("dangdang.com")) {
+    const dd = await scrapeDangdang(url);
+    if (dd && dd.title) {
+      return dd;
+    }
+  }
+
+  if (host.includes("jd.com")) {
+    const jd = await scrapeJd(url);
+    if (jd && jd.title) {
+      return jd;
+    }
+  }
+
+  // 2. Generic fetch
+  const res = await fetchWithTimeout(url, CHROME_HEADERS);
   if (!res.ok) {
     return {
       success: false,
@@ -270,23 +421,6 @@ export async function scrapeProduct(url: string): Promise<ScrapeProductResult> {
       success: false,
       antibot: true,
       error: "目标站点返回了反爬/验证码页面，未能抓取到商品正文。建议直接手工粘贴商品详情。",
-    };
-  }
-
-  const host = new URL(url).hostname.toLowerCase();
-
-  // Dangdang specialized branch
-  if (host.includes("dangdang.com")) {
-    const dd = parseDangdang(html, url);
-    return {
-      success: true,
-      title: dd.title,
-      price: "¥ --",
-      images: dd.images,
-      bullets: dd.bullets,
-      description: dd.description,
-      url,
-      platform: "当当网",
     };
   }
 

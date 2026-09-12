@@ -1602,13 +1602,17 @@ async function _callCustomImageModel(cfg, prompt, n, refImageUrl) {
   var fetchSingleBatch = async function() {
     var reqBody = { model: cfg.model || 'gpt-image-1', prompt: prompt, n: n, size: '1024x1024' };
     if (refImageUrl) reqBody.image = refImageUrl;
+    var targetUrl = cfg.baseUrl || '';
+    if (targetUrl.includes('/chat/completions')) {
+      targetUrl = targetUrl.replace(/\/chat\/completions$/, '/images/generations');
+    }
     var url, headers, body;
     if (isProxy) {
       url = '/api/custom_model';
       headers = { 'Content-Type': 'application/json' };
-      body = { url: cfg.baseUrl, method: 'POST', auth_type: 'bearer', auth_key: cfg.apiKey || '', body: reqBody };
+      body = { url: targetUrl, method: 'POST', auth_type: 'bearer', auth_key: cfg.apiKey || '', body: reqBody };
     } else {
-      url = cfg.baseUrl;
+      url = targetUrl;
       headers = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (cfg.apiKey || '') };
       body = reqBody;
     }
@@ -1666,26 +1670,50 @@ function resolveImageModelCall(modelId) {
 async function callModuleImage(moduleKey, prompt, n, refImageUrl) {
   n = n || 3;
   var picked = getPickedModelId(moduleKey);
-  if (!picked) throw new Error('尚未配置可用的图片大模型，请到「大模型配置」添加一个');
-  var fn = resolveImageModelCall(picked);
-  if (!fn) throw new Error('图片模型「' + (modelNameById(picked) || picked) + '」无法调用，请到「大模型配置」检查它的接口地址');
-  var urls;
-  try {
-    urls = await fn(prompt, n, refImageUrl);
-  } catch (e) {
-    console.warn('[callModuleImage:' + moduleKey + '] ' + picked + ' failed:', e && e.message);
-    var name = modelNameById(picked) || picked;
-    var why = (e && (e.isRateLimit || e.status === 429)) ? '请求过多（429），稍等一会儿重试'
-      : (e && e.message) ? e.message : '未知错误';
-    var err = new Error('图片模型「' + name + '」出图失败：' + why + '。可稍后重试，或在上方下拉框换一个模型。');
-    err.status = e && e.status;
-    err.isRateLimit = e && e.isRateLimit;
-    throw err;
+  var fn = picked ? resolveImageModelCall(picked) : null;
+  var urls = null;
+  var firstErr = null;
+
+  if (fn) {
+    try {
+      urls = await fn(prompt, n, refImageUrl);
+    } catch (e) {
+      console.warn('[callModuleImage:' + moduleKey + '] ' + picked + ' failed:', e && e.message);
+      firstErr = e;
+    }
   }
+
+  // 若首选模型未配置、或出图失败（如额度耗尽、超时、端点不可用），自动尝试可用内置主力模型降级兜底
   if (!urls || !urls.length) {
-    throw new Error('图片模型「' + (modelNameById(picked) || picked) + '」没有返回图片，请重试或换一个模型。');
+    var fallbacks = ['ark-image', 'agnes-image'];
+    for (var fi = 0; fi < fallbacks.length; fi++) {
+      var fbId = fallbacks[fi];
+      if (fbId === picked) continue;
+      var fbFn = resolveImageModelCall(fbId);
+      if (!fbFn) continue;
+      try {
+        console.log('[callModuleImage] 尝试备选模型降级: ' + fbId);
+        urls = await fbFn(prompt, n, refImageUrl);
+        if (urls && urls.length) {
+          showToast('ℹ️ 首选模型出图失败，已自动切换至 ' + modelNameById(fbId) + ' 成功出图');
+          break;
+        }
+      } catch (fbErr) {
+        console.warn('[callModuleImage fallback] ' + fbId + ' 也失败:', fbErr && fbErr.message);
+      }
+    }
   }
-  return urls;
+
+  if (urls && urls.length) {
+    return urls;
+  }
+
+  var name = picked ? (modelNameById(picked) || picked) : '未配置';
+  var why = firstErr ? ((firstErr.isRateLimit || firstErr.status === 429) ? '请求过多（429），稍等一会儿重试' : (firstErr.message || '未知错误')) : '尚未配置可用的图片大模型';
+  var err = new Error('图片出图失败（' + name + '：' + why + '），请检查大模型配置或稍后重试。');
+  err.status = firstErr && firstErr.status;
+  err.isRateLimit = firstErr && firstErr.isRateLimit;
+  throw err;
 }
 
 var VIDEO_MODEL_BUILTIN = {
@@ -1697,20 +1725,32 @@ var VIDEO_MODEL_BUILTIN = {
 };
 function resolveVideoModelCall(modelId) {
   if (VIDEO_MODEL_BUILTIN[modelId]) return VIDEO_MODEL_BUILTIN[modelId];
-  return null;  // 自定义视频模型协议差异大，暂只支持内置 4 家
+  var short = _videoShortKey(modelId);
+  if (short === 'agnes') return VIDEO_MODEL_BUILTIN['agnes-video'];
+  if (short === 'agnes25') return VIDEO_MODEL_BUILTIN['agnes-video-25'];
+  if (short === 'seedance-mini') return VIDEO_MODEL_BUILTIN['seedance-mini-video'];
+  if (short === 'hunyuan') return VIDEO_MODEL_BUILTIN['hunyuan-video'];
+  if (short === 'minimax') return VIDEO_MODEL_BUILTIN['minimax-video'];
+  return null;
 }
 
 // 把模块下拉框选的视频模型 id 映射回旧的短 key（seedance-mini/agnes/hunyuan/minimax）
-// 未知 id（用户自定义视频模型）返回 null，交由 callModuleVideo 走通用降级，
-// 不再一律当成 'seedance-mini'（会导致下拉框选 A、实际调 B）。
 function _videoShortKey(modelId) {
+  if (!modelId) return null;
   var map = { 'seedance-mini-video': 'seedance-mini', 'agnes-video': 'agnes', 'agnes-video-25': 'agnes25', 'hunyuan-video': 'hunyuan', 'minimax-video': 'minimax' };
-  return map[modelId] || null;
+  if (map[modelId]) return map[modelId];
+  var lower = String(modelId).toLowerCase();
+  if (lower.indexOf('agnes-video-2.5') !== -1 || lower.indexOf('agnes-video-25') !== -1 || lower.indexOf('agnes-2.5') !== -1) return 'agnes25';
+  if (lower.indexOf('agnes') !== -1) return 'agnes';
+  if (lower.indexOf('seedance') !== -1) return 'seedance-mini';
+  if (lower.indexOf('hunyuan') !== -1) return 'hunyuan';
+  if (lower.indexOf('minimax') !== -1 || lower.indexOf('hailuo') !== -1) return 'minimax';
+  return null;
 }
 function syncVideoModelFromPicker(moduleKey) {
   var id = getPickedModelId(moduleKey);
   var short = _videoShortKey(id);
-  if (!short) return null;   // 自定义模型：保持原状态变量不动
+  if (!short) short = 'agnes'; // 默认回退到当前可用主力 Agnes AI Video
   if (moduleKey === 'video-create') { vcSelectedModel = short; }
   else { selectedVideoModel = short; }
   return short;
@@ -1865,27 +1905,41 @@ async function callAgnesVideo(prompt, onProgress, durationSec, opts, imageRef) {
   };
   if (imageRef) body.image = imageRef;
 
-  var submitResp = await fetch(AGNES_VIDEO_SUBMIT_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + AGNES_API_KEY
-    },
-    body: JSON.stringify(body)
-  });
-  var submitData = await submitResp.json().catch(function() { return {}; });
+  // 1. 提交视频生成任务（对单分钟 6 次频控进行自动退避重试）
+  var submitResp = null;
+  var submitData = null;
+  var maxSubmitTries = 3;
+  for (var submitTry = 1; submitTry <= maxSubmitTries; submitTry++) {
+    submitResp = await fetch(AGNES_VIDEO_SUBMIT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + AGNES_API_KEY
+      },
+      body: JSON.stringify(body)
+    });
+    submitData = await submitResp.json().catch(function() { return {}; });
+    if (submitResp.ok) break;
+
+    if (submitResp.status === 429) {
+      if (submitTry < maxSubmitTries) {
+        var waitSec = 15;
+        if (onProgress) onProgress(0, 60, 'Agnes AI 频控（6次/分），等待 ' + waitSec + ' 秒后自动重试 (' + submitTry + '/' + (maxSubmitTries - 1) + ')...');
+        showToast('⏳ Agnes AI 触发单分钟频控，等待 ' + waitSec + ' 秒后自动提交...');
+        await new Promise(function(r) { setTimeout(r, waitSec * 1000); });
+        continue;
+      }
+    }
+    break;
+  }
+
   if (!submitResp.ok) {
     // 队列满和限流都是**暂时**的，别让用户以为是自己参数填错了去反复改设置。
-    // 503 的文案厂商用过两种，都要认：
-    //   {"code":"video_queue_full"}                 —— 早期
-    //   "Service busy: inference slot is in use."    —— 2026-08-24 实测新增
-    // 只匹配 queue.*full 会让后者掉进下面那条笼统的"提交失败 HTTP 503"，
-    // 用户看到一长串 litellm 嵌套 JSON，会以为是参数错。
     if (submitResp.status === 503) {
-      throw new Error('Agnes AI 排队中（厂商队列或推理槽已满），稍等一两分钟重试即可 —— 不是参数问题。也可切到 Seedance 2 Mini。');
+      throw new Error('Agnes AI 排队中（厂商队列或推理槽已满），稍等一两分钟重试即可 —— 不是参数问题。');
     }
     if (submitResp.status === 429) {
-      throw new Error('Agnes AI 触发限流（视频每分钟 6 次），稍等一分钟再试。');
+      throw new Error('Agnes AI 触发限流（视频每分钟 6 次），已自动等待重试，请稍候 30 秒再试。');
     }
     throw new Error('Agnes AI 提交失败 HTTP ' + submitResp.status + '：' + JSON.stringify(submitData).slice(0, 300));
   }
@@ -1981,13 +2035,11 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
     var em = (submitData && submitData.error && submitData.error.message) || (submitData && submitData.message) || '';
     // 2026-08-24 复测：厂商**已上线**（不再返回 model_not_found），所以 503 的含义变了 ——
     // 现在是"队列/推理槽占满"这类暂时状态，不能再报"尚未上线"误导用户。
-    if (submitResp.status === 503) {
-      throw new Error('Agnes Video 2.5 排队中（厂商队列或推理槽已满），稍等一两分钟重试 —— 不是参数问题。也可用 Agnes Video V2.0 或 Seedance 2 Mini。');
-    }
-    // 真正拦住 2.5 的是余额：单次约 $0.125，账号额度不够就 403 insufficient_user_quota。
-    // 这条要单独说清楚，否则用户会去反复调时长/画幅，怎么改都不通。
-    if (submitResp.status === 403 || /insufficient_user_quota|额度/i.test(em)) {
-      throw new Error('Agnes Video 2.5 账号额度不足（单次约 $0.125）：' + (em || 'insufficient_user_quota') + '。请充值，或改用 Agnes Video V2.0 / Seedance 2 Mini。');
+    // 遇到限流或需要 Token Plan 付费计划时，自动平滑切换至可用的 Agnes Video V2.0
+    if (submitResp.status === 429 || /rate limit|Token Plan/i.test(em)) {
+      console.log('[callAgnesVideo25] V2.5 达到限制或需 Token Plan，自动回落至 Agnes Video V2.0');
+      showToast('ℹ️ Agnes 2.5 需付费计划，已自动切换至可用 Agnes Video V2.0');
+      return callAgnesVideo(prompt, onProgress, durationSec, opts, imageRef);
     }
     // 兜底也提示一下 model_not_found —— 万一厂商又下线了，别让人以为是参数问题
     if (/no available channel|model_not_found/i.test(em)) {
@@ -5153,6 +5205,7 @@ async function generateImages() {
 
   var images = [];
   var usedModelId = getPickedModelId('image');
+  var lastImageError = null;
   try {
     // 走统一图片分发器：按下拉框选的图片模型优先，失败自动遍历其它图片模型
     var urls = await callModuleImage('image', prompt, num, imageRefDataUrl);
@@ -5168,7 +5221,8 @@ async function generateImages() {
       showToast('✅ ' + modelNameById(usedModelId) + (imageRefDataUrl ? '（含参考图）' : '') + ' 已生成 ' + images.length + ' 张图片');
     }
   } catch(e) {
-    console.log('Image generation API failed:', e && e.message);
+    lastImageError = e && e.message ? e.message : '未知错误';
+    console.error('Image generation API failed:', e);
   }
 
   // API 没有返回结果时，用 Canvas 本地兜底；兜底图只做预览，不进入资产库
@@ -5191,7 +5245,7 @@ async function generateImages() {
     renderImageResults();
     flushAssets();   // 生成即入库（顺带把远端图落盘）
   } else {
-    renderImageResultList(previewImages, true);
+    renderImageResultList(previewImages, true, lastImageError);
   }
   loading.style.display = 'none';
   resultSection.style.display = 'block';
@@ -5199,7 +5253,7 @@ async function generateImages() {
   btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg> 生成图片';
   resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   if (usedFallback) {
-    showToast('API 暂不可用，已生成本地占位预览，未进入资产库');
+    showToast(lastImageError ? ('⚠️ 出图失败（' + lastImageError + '）') : 'API 暂不可用，已生成本地占位预览，未进入资产库');
   } else {
     showToast('已生成 ' + images.length + ' 张真实图片并加入资产库');
   }
@@ -5445,11 +5499,13 @@ function renderImageResults() {
   renderImageResultList(generatedImages, false);
 }
 
-function renderImageResultList(images, previewOnly) {
+function renderImageResultList(images, previewOnly, errorMsg) {
   var grid = document.getElementById('imageResultGrid');
   var html = '';
   if (previewOnly) {
-    html += '<div class="image-preview-note" style="grid-column:1/-1;">API 暂不可用，以下为本地占位预览，不会进入自媒体资产库。请稍后重试生成真实图片。</div>';
+    html += '<div class="image-preview-note" style="grid-column:1/-1;">'
+      + (errorMsg ? ('⚠️ 出图失败（' + escapeHtml(errorMsg) + '）。') : 'API 暂不可用，')
+      + '以下为本地占位预览，不会进入自媒体资产库。请在「大模型配置」中检查模型接口与密钥。</div>';
   }
   for (var i = images.length - 1; i >= 0; i--) {
     var img = images[i];
@@ -7121,11 +7177,27 @@ async function bootAppData() {
   } catch (e) { window._userPromptsCache = null; }
   try {
     var mr = await (await fetch('/api/data/models')).json();
+    // 必须先恢复删除记录、再合并默认模型：
+    // 服务端返回的 mr.models 已经过滤掉删除项，但 mr.deletedIds 此刻还没进内存/localStorage，
+    // 若先 mergeModelDefaults 会用"空删除记录"把默认模型重新合并进来，删除项当场被"复活"。
+    // 所以顺序是：先落删除记录 → 再基于它合并默认模型。
+    if (mr && mr.success && Array.isArray(mr.deletedIds)) {
+      window._userDeletedModels = mr.deletedIds.map(String);
+      try { localStorage.setItem('gs_deleted_models', JSON.stringify(window._userDeletedModels)); } catch(e2) {}
+    }
     if (mr && mr.success && Array.isArray(mr.models) && mr.models.length > 0) {
-      window._userModelsCache = mr.models;
+      window._userModelsCache = mergeModelDefaults(mr.models, false);
     } else {
-      window._userModelsCache = JSON.parse(JSON.stringify(defaultModels));
-      saveModels(window._userModelsCache);
+      // 列表为空：可能是用户故意清空（删除记录非空），也可能是新用户还没 seed。
+      // 服务端 GET 对未 seed 用户会自动补种，所以空列表基本只来自"用户清空过"。
+      // 这里只置空缓存，不能调 saveModels/saveDeletedModelIds —— 它们会把登录前的
+      // 陈旧列表推回服务端，覆盖用户刚做的清空（删除记录在上面已恢复）。
+      if (mr && mr.success && Array.isArray(mr.models)) {
+        window._userModelsCache = [];
+      } else {
+        window._userModelsCache = mergeModelDefaults(JSON.parse(JSON.stringify(defaultModels)), false);
+        saveModels(window._userModelsCache);
+      }
     }
   } catch (e) {
     try {
@@ -10048,18 +10120,32 @@ async function generateVideo() {
         videoUrl = await callAgnesVideo(videoPrompt, progressCb, durationSec, null, null);
       } catch (e) {
         console.warn('Agnes video failed, attempting Seedance Mini fallback:', e);
-        if (progressCb) progressCb(1, 1, 'Agnes 暂不可用，自动切换 Seedance Mini 兜底生成...');
-        showToast('Agnes 暂不可用，已自动使用 Seedance 2 Mini 兜底');
-        videoUrl = await callSeedanceMiniVideo(videoPrompt, progressCb, durationSec, null, null);
+        if (progressCb) progressCb(1, 1, 'Agnes 提示：' + ((e && e.message) || '暂时繁忙') + '，正在尝试 Seedance 2 Mini 兜底...');
+        try {
+          videoUrl = await callSeedanceMiniVideo(videoPrompt, progressCb, durationSec, null, null);
+        } catch (sErr) {
+          var sMsg = (sErr && sErr.message) || '';
+          if (sMsg.indexOf('Insufficient balance') !== -1 || sMsg.indexOf('额度不足') !== -1) {
+            throw new Error('Agnes 视频生成提示：' + ((e && e.message) || '触发频控') + '（备用 Seedance 账号额度耗尽，请稍等 30 秒直接重试 Agnes AI 即可）');
+          }
+          throw new Error('Agnes 视频生成失败：' + ((e && e.message) || '未知') + '；备用 Seedance 亦失败：' + sMsg);
+        }
       }
     } else if (selectedVideoModel === 'agnes25') {
       try {
         videoUrl = await callAgnesVideo25(videoPrompt, progressCb, durationSec, null, null);
       } catch (e) {
         console.warn('Agnes 2.5 video failed, attempting Seedance Mini fallback:', e);
-        if (progressCb) progressCb(1, 1, 'Agnes 2.5 暂不可用，自动切换 Seedance Mini 兜底生成...');
-        showToast('Agnes 2.5 暂不可用，已自动使用 Seedance 2 Mini 兜底');
-        videoUrl = await callSeedanceMiniVideo(videoPrompt, progressCb, durationSec, null, null);
+        if (progressCb) progressCb(1, 1, 'Agnes 2.5 提示：' + ((e && e.message) || '暂时繁忙') + '，正在尝试 Seedance 2 Mini 兜底...');
+        try {
+          videoUrl = await callSeedanceMiniVideo(videoPrompt, progressCb, durationSec, null, null);
+        } catch (sErr) {
+          var sMsg2 = (sErr && sErr.message) || '';
+          if (sMsg2.indexOf('Insufficient balance') !== -1 || sMsg2.indexOf('额度不足') !== -1) {
+            throw new Error('Agnes 2.5 视频生成提示：' + ((e && e.message) || '触发频控') + '（备用 Seedance 账号额度耗尽，请稍等 30 秒直接重试 Agnes AI 即可）');
+          }
+          throw new Error('Agnes 2.5 视频生成失败：' + ((e && e.message) || '未知') + '；备用 Seedance 亦失败：' + sMsg2);
+        }
       }
     } else if (selectedVideoModel === 'seedance-mini') {
       videoUrl = await callSeedanceMiniVideo(videoPrompt, progressCb, durationSec, null, null);
@@ -10240,7 +10326,7 @@ async function generateFullVideo() {
             vUrl = await callAgnesVideo(segPrompt, pc, segDuration, null, null);
           } catch (e) {
             console.warn('Agnes segment ' + i + ' failed, falling back to Seedance Mini:', e);
-            vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, null);
+            vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, null).catch(function(err) { console.warn('Seedance fallback failed:', err); return null; });
           }
         }
         else if (selectedVideoModel === 'agnes25') {
@@ -10248,7 +10334,7 @@ async function generateFullVideo() {
             vUrl = await callAgnesVideo25(segPrompt, pc, segDuration, null, null);
           } catch (e) {
             console.warn('Agnes 2.5 segment ' + i + ' failed, falling back to Seedance Mini:', e);
-            vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, null);
+            vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, null).catch(function(err) { console.warn('Seedance fallback failed:', err); return null; });
           }
         }
         else if (selectedVideoModel === 'seedance-mini') { vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, null); }
@@ -11314,18 +11400,32 @@ async function vcGenerateVideo() {
         videoUrl = await callAgnesVideo(fullPrompt, onProgress, dur, null, vcRef);
       } catch (e) {
         console.warn('Agnes video failed, attempting Seedance Mini fallback:', e);
-        if (onProgress) onProgress(1, 1, 'Agnes 暂不可用，自动切换 Seedance Mini 兜底生成...');
-        showToast('Agnes 暂不可用，已自动使用 Seedance 2 Mini 兜底');
-        videoUrl = await callSeedanceMiniVideo(fullPrompt, onProgress, dur, null, vcRef);
+        if (onProgress) onProgress(1, 1, 'Agnes 提示：' + ((e && e.message) || '暂时繁忙') + '，正在尝试 Seedance 2 Mini 兜底...');
+        try {
+          videoUrl = await callSeedanceMiniVideo(fullPrompt, onProgress, dur, null, vcRef);
+        } catch (sErr) {
+          var sMsg = (sErr && sErr.message) || '';
+          if (sMsg.indexOf('Insufficient balance') !== -1 || sMsg.indexOf('额度不足') !== -1) {
+            throw new Error('Agnes 视频生成提示：' + ((e && e.message) || '触发频控') + '（备用 Seedance 账号额度耗尽，请稍等 30 秒直接重试 Agnes AI 即可）');
+          }
+          throw new Error('Agnes 视频生成失败：' + ((e && e.message) || '未知') + '；备用 Seedance 2 Mini 亦失败：' + sMsg);
+        }
       }
     } else if (vcSelectedModel === 'agnes25') {
       try {
         videoUrl = await callAgnesVideo25(fullPrompt, onProgress, dur, null, vcRef);
       } catch (e) {
         console.warn('Agnes 2.5 video failed, attempting Seedance Mini fallback:', e);
-        if (onProgress) onProgress(1, 1, 'Agnes 2.5 暂不可用，自动切换 Seedance Mini 兜底生成...');
-        showToast('Agnes 2.5 暂不可用，已自动使用 Seedance 2 Mini 兜底');
-        videoUrl = await callSeedanceMiniVideo(fullPrompt, onProgress, dur, null, vcRef);
+        if (onProgress) onProgress(1, 1, 'Agnes 2.5 提示：' + ((e && e.message) || '暂时繁忙') + '，正在尝试 Seedance 2 Mini 兜底...');
+        try {
+          videoUrl = await callSeedanceMiniVideo(fullPrompt, onProgress, dur, null, vcRef);
+        } catch (sErr) {
+          var sMsg2 = (sErr && sErr.message) || '';
+          if (sMsg2.indexOf('Insufficient balance') !== -1 || sMsg2.indexOf('额度不足') !== -1) {
+            throw new Error('Agnes 2.5 视频生成提示：' + ((e && e.message) || '触发频控') + '（备用 Seedance 账号额度耗尽，请稍等 30 秒直接重试 Agnes AI 即可）');
+          }
+          throw new Error('Agnes 2.5 视频生成失败：' + ((e && e.message) || '未知') + '；备用 Seedance 2 Mini 亦失败：' + sMsg2);
+        }
       }
     } else if (vcSelectedModel === 'seedance-mini') {
       videoUrl = await callSeedanceMiniVideo(fullPrompt, onProgress, dur, null, vcRef);
@@ -11549,15 +11649,14 @@ async function vcGenerateSegments() {
           vUrl = await callAgnesVideo(segPrompt, pc, segDuration, null, vcRef);
         } catch (e) {
           console.warn('Agnes segment ' + i + ' failed, falling back to Seedance Mini:', e);
-          vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, vcRef);
+          vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, vcRef).catch(function(err) { console.warn('Seedance fallback failed:', err); return null; });
         }
-      }
-      else if (vcSelectedModel === 'agnes25') {
+      } else if (vcSelectedModel === 'agnes25') {
         try {
           vUrl = await callAgnesVideo25(segPrompt, pc, segDuration, null, vcRef);
         } catch (e) {
           console.warn('Agnes 2.5 segment ' + i + ' failed, falling back to Seedance Mini:', e);
-          vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, vcRef);
+          vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, vcRef).catch(function(err) { console.warn('Seedance fallback failed:', err); return null; });
         }
       }
       else if (vcSelectedModel === 'seedance-mini') { vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, vcRef); }
@@ -12075,7 +12174,11 @@ async function fetchRemoteModels() {
 
     if (!resp.ok || !data.success) {
       var errMsg = (data && data.error) || ('HTTP ' + resp.status);
-      if (statusEl) { statusEl.textContent = '❌ ' + errMsg; statusEl.style.color = '#ef4444'; }
+      if (statusEl) {
+        statusEl.style.whiteSpace = 'pre-wrap';
+        statusEl.textContent = '❌ ' + errMsg;
+        statusEl.style.color = '#ef4444';
+      }
       return;
     }
 
@@ -12240,8 +12343,10 @@ async function confirmImportSelectedModels() {
     if (chatUrl.endsWith('/v1')) chatUrl += '/chat/completions';
     else if (!chatUrl.endsWith('/models')) chatUrl += '/v1/chat/completions';
   }
+  var imageUrl = chatUrl.replace(/\/chat\/completions$/, '/images/generations');
+  var videoUrl = chatUrl.replace(/\/chat\/completions$/, '/videos');
 
-  var currentModels = getModels();
+  var currentModels = mergeModelDefaults(getModels(), false);
   var addedCount = 0;
   var updatedCount = 0;
 
@@ -12266,7 +12371,7 @@ async function confirmImportSelectedModels() {
       id: targetId,
       name: (provider ? provider + ' · ' : '') + slug,
       provider: provider,
-      baseUrl: chatUrl,
+      baseUrl: (type === 'image') ? imageUrl : (type === 'video' ? videoUrl : chatUrl),
       protocol: protocol,
       type: type,
       model: slug,
@@ -12507,19 +12612,33 @@ var defaultModels = [
 }
 ];
 
-// 用户删除的默认模型 id 列表（缓存 + 后端持久化，随 models 一起存）
+// 用户删除的默认模型 id 列表（缓存 + localStorage + 后端持久化，随 models 一起存）
+// localStorage 持久化是关键：只存内存的话，clearAllModels 清空后一刷新，
+// loadModels 发现缓存为空就会回落到 defaultModels，把刚清掉的又全部装回来。
 window._userDeletedModels = null;
 function getDeletedModelIds() {
-  return window._userDeletedModels || [];
+  if (window._userDeletedModels) return window._userDeletedModels;
+  try {
+    var raw = localStorage.getItem('gs_deleted_models');
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) { window._userDeletedModels = parsed; return parsed; }
+    }
+  } catch(e) {}
+  return [];
 }
 
 function saveDeletedModelIds(ids) {
   window._userDeletedModels = ids || [];
-  // 与 models 一起推送（saveModels 会带上 deletedIds）
-  if (window.currentUser && modelsCache) saveModels(modelsCache);
+  try { localStorage.setItem('gs_deleted_models', JSON.stringify(ids || [])); } catch(e) {}
+  // 只更新内存与 localStorage，不再在此自动推服务端：
+  // 若在推送时 getDeletedModelIds 还是旧值（调用方尚未把新 id 加进来），
+  // 服务端那个"按缺省补全"会把刚删的模型又塞回去（竞态复活）。
+  // 持久化交给调用方：它会在把新 id 加进数组后，用 saveModels 发**一次**带完整
+  // deletedIds 的 POST，避免两个 POST 互相竞态。
 }
 
-function mergeModelDefaults(savedModels) {
+function mergeModelDefaults(savedModels, persist) {
   var removedIds = { 'seedance-video': true };
   var deletedIds = getDeletedModelIds();
   for (var x = 0; x < deletedIds.length; x++) removedIds[deletedIds[x]] = true;
@@ -12549,7 +12668,7 @@ function mergeModelDefaults(savedModels) {
   for (var d = 0; d < defaultModels.length; d++) {
     if (!existingIds[defaultModels[d].id] && !removedIds[defaultModels[d].id]) merged.push(JSON.parse(JSON.stringify(defaultModels[d])));
   }
-  saveModels(merged);
+  if (persist) saveModels(merged);
   return merged;
 }
 
@@ -12557,17 +12676,22 @@ function mergeModelDefaults(savedModels) {
 window._userModelsCache = null;
 
 function loadModels() {
-  if (window._userModelsLoaded && Array.isArray(window._userModelsCache) && window._userModelsCache.length > 0) {
-    return JSON.parse(JSON.stringify(window._userModelsCache));
+  if (window._userModelsLoaded && Array.isArray(window._userModelsCache)) {
+    // 缓存为空数组也是合法状态（用户清空过），直接返回，不要回落默认
+    return window._userModelsCache.length > 0 ? mergeModelDefaults(window._userModelsCache, false) : [];
   }
   try {
     var local = localStorage.getItem('gs_user_models');
     if (local) {
       var parsed = JSON.parse(local);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      // localStorage 里存了显式的空数组（用户清空后写入的），同样视为合法空列表
+      if (Array.isArray(parsed) && parsed.length > 0) return mergeModelDefaults(parsed, false);
+      if (Array.isArray(parsed) && parsed.length === 0 && getDeletedModelIds().length > 0) return [];
     }
   } catch(e) {}
-  return JSON.parse(JSON.stringify(defaultModels));
+  var mergedDefaults = mergeModelDefaults(JSON.parse(JSON.stringify(defaultModels)), false);
+  // 未登录占位：不持久化，不覆盖用户已清空的 localStorage
+  return mergedDefaults;
 }
 
 function normalizeSeedanceTaskUrl(url) {
@@ -12600,9 +12724,11 @@ function saveModels(models) {
   try { localStorage.setItem('gs_user_models', JSON.stringify(models)); } catch(e) {}
   modelsCache = models;
   if (window.currentUser) {
+    // 必须带上 deletedIds：服务端保存时会补回缺失的默认模型，
+    // 不带的话用户删掉的默认模型会在下一次任意保存时被"复活"。
     fetch('/api/data/models', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ models: models })
+      body: JSON.stringify({ models: models, deletedIds: getDeletedModelIds() })
     }).catch(function(e) { console.warn('[saveModels] push failed', e && e.message); });
   }
 }
@@ -12628,7 +12754,16 @@ var statusColors = { active: '#10b981', inactive: '#ef4444' };
 function renderModelList() {
   var models = getModels();
   var list = document.getElementById('modelList');
-  
+  var empty = document.getElementById('modelEmpty');
+  if (!list) return;
+
+  if (!models || models.length === 0) {
+    list.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
   var html = '';
   for (var i = 0; i < models.length; i++) {
     var m = models[i];
@@ -12883,21 +13018,99 @@ async function deleteModel(id) {
   if (!target) return;
   if (!confirm('确定要删除模型配置：' + target.name + ' 吗？')) return;
   models = models.filter(function(m) { return m.id !== id; });
+  // saveDeletedModelIds 现在只更新内存 + localStorage（不再自动推服务端），
+  // 所以下面 saveModels(models) 是**唯一一次**对后端的推送，且带完整的 deletedIds，
+  // 两个请求不再竞态。被删的默认模型不会在保存时被服务端补回。
+  modelsCache = models;
   var deletedIds = getDeletedModelIds();
   if (deletedIds.indexOf(id) === -1) {
     deletedIds.push(id);
     saveDeletedModelIds(deletedIds);
   }
   saveModels(models);
-  modelsCache = models;
   try {
     await syncProjectConfig('models', { models: models, deletedIds: deletedIds });
     renderModelList();
-    showToast('✅ 模型配置已删除，并已同步写入 index.html 和 server.py');
+    if (typeof refreshAllModelPickers === 'function') refreshAllModelPickers();
+    showToast('✅ 模型配置已删除');
   } catch (e) {
     renderModelList();
-    showToast('⚠️ 模型已从页面删除，但写入源码失败：' + ((e && e.message) || '未知错误'));
+    if (typeof refreshAllModelPickers === 'function') refreshAllModelPickers();
+    showToast('⚠️ 模型已从页面删除');
   }
+}
+
+async function clearAllModels() {
+  var models = getModels();
+  if (!models || models.length === 0) {
+    showToast('当前模型列表已为空');
+    return;
+  }
+  if (!confirm('⚠️ 确定要一键清除所有大模型配置吗？\n\n清除后列表将清空。您可以随时点击【恢复默认】或【通过 API 一键导入】。')) {
+    return;
+  }
+
+  var allIds = [];
+  for (var i = 0; i < models.length; i++) {
+    if (models[i].id) allIds.push(models[i].id);
+  }
+  // 先直接写 localStorage 与内存（不走 saveDeletedModelIds，避免它先按旧缓存推一次
+  // 普通 POST 把默认模型"复活"又清空），再推空列表 + clearAll + 完整 allIds 给服务端。
+  modelsCache = [];
+  window._userModelsCache = [];
+  window._userDeletedModels = allIds;
+  try { localStorage.setItem('gs_user_models', JSON.stringify([])); } catch (e) {}
+  try { localStorage.setItem('gs_deleted_models', JSON.stringify(allIds)); } catch (e) {}
+
+  if (window.currentUser) {
+    try {
+      await fetch('/api/data/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ models: [], clearAll: true, deletedIds: allIds })
+      });
+    } catch (e) {
+      console.warn('[clearAllModels] API failed:', e);
+    }
+  }
+
+  renderModelList();
+  if (typeof refreshAllModelPickers === 'function') refreshAllModelPickers();
+  showToast('🗑️ 已成功清除所有模型配置');
+}
+
+async function resetDefaultModels() {
+  var current = getModels();
+  if (current && current.length > 0) {
+    if (!confirm('确定要恢复系统默认模型配置吗？\n\n这将重置为系统预设的 ' + defaultModels.length + ' 个大模型（包含火山方舟 Seedream、Agnes Video 等核心模型）。')) {
+      return;
+    }
+  }
+
+  // 先更新缓存与本地存储（不走 saveDeletedModelIds，避免多一次普通 POST 的"复活"绕路），
+  // 再推 resetDefaults + 空删除记录给服务端。
+  var defs = JSON.parse(JSON.stringify(defaultModels));
+  modelsCache = defs;
+  window._userModelsCache = defs;
+  window._userDeletedModels = [];
+  try { localStorage.setItem('gs_user_models', JSON.stringify(defs)); } catch (e) {}
+  try { localStorage.setItem('gs_deleted_models', JSON.stringify([])); } catch (e) {}
+
+  if (window.currentUser) {
+    try {
+      await fetch('/api/data/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ models: defs, resetDefaults: true, deletedIds: [] })
+      });
+    } catch (e) {
+      console.warn('[resetDefaultModels] API failed:', e);
+    }
+  }
+
+  renderModelList();
+  if (typeof refreshAllModelPickers === 'function') refreshAllModelPickers();
+  showToast('✅ 已恢复默认大模型配置');
 }
 
 
@@ -13026,7 +13239,11 @@ async function fetchRemoteModels() {
 
     if (!resp.ok || !data.success) {
       var errMsg = (data && data.error) || ('HTTP ' + resp.status);
-      if (statusEl) { statusEl.textContent = '❌ ' + errMsg; statusEl.style.color = '#ef4444'; }
+      if (statusEl) {
+        statusEl.style.whiteSpace = 'pre-wrap';
+        statusEl.textContent = '❌ ' + errMsg;
+        statusEl.style.color = '#ef4444';
+      }
       return;
     }
 

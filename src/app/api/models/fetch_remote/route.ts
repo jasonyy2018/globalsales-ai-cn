@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
+import { assertPublicUrl } from "@/lib/scraper";
 
 function inferModelType(id: string): "text" | "image" | "video" {
   const s = id.toLowerCase();
@@ -32,19 +33,41 @@ function detectProvider(url: string): string {
 
 export async function POST(request: Request) {
   try {
-    await requireAuth();
+    try {
+      await requireAuth();
+    } catch {
+      return NextResponse.json(
+        { success: false, error: "系统登录已失效，请刷新页面重新登录后再试" },
+        { status: 401 }
+      );
+    }
 
     const body = await request.json();
     let rawBaseUrl = String(body.base_url || body.baseUrl || "").trim();
-    const apiKey = String(body.api_key || body.apiKey || "").trim();
+    let apiKey = String(body.api_key || body.apiKey || "").trim();
     const protocol = String(body.protocol || "OpenAI 兼容协议").trim();
 
     if (!rawBaseUrl) {
       return NextResponse.json({ success: false, error: "请提供 Base URL" }, { status: 400 });
     }
 
+    // Automatically strip redundant "Bearer " prefix if user accidentally pasted it
+    apiKey = apiKey.replace(/^Bearer\s+/i, "").trim();
+
     if (!/^https?:\/\//i.test(rawBaseUrl)) {
       rawBaseUrl = "https://" + rawBaseUrl;
+    }
+
+    // SSRF 防护：禁止抓内网地址（与 scraper 的 assertPublicUrl 同一套规则）。
+    // 但放行 Ollama 本地端点 —— 用户明确可能在本机跑 Ollama。
+    const isLocalOllama = /(localhost|127\.0\.0\.1):11434/i.test(rawBaseUrl);
+    if (!isLocalOllama) {
+      try {
+        await assertPublicUrl(rawBaseUrl);
+      } catch (ssrfErr: unknown) {
+        const msg = ssrfErr instanceof Error ? ssrfErr.message : String(ssrfErr);
+        return NextResponse.json({ success: false, error: `Base URL 被拒绝：${msg}` }, { status: 400 });
+      }
     }
 
     // Clean URL
@@ -56,17 +79,16 @@ export async function POST(request: Request) {
     const candidateEndpoints: string[] = [];
     if (cleanUrl.endsWith("/models")) {
       candidateEndpoints.push(cleanUrl);
-    } else if (cleanUrl.endsWith("/v1")) {
-      candidateEndpoints.push(`${cleanUrl}/models`);
-    } else if (cleanUrl.endsWith("/v4")) {
-      candidateEndpoints.push(`${cleanUrl}/models`);
-    } else {
-      candidateEndpoints.push(`${cleanUrl}/v1/models`);
-      candidateEndpoints.push(`${cleanUrl}/models`);
     }
 
-    // Also support Ollama tags endpoint if it looks like Ollama or custom port
+    const rootUrl = cleanUrl.replace(/\/(v1|v4)$/i, "");
+    candidateEndpoints.push(`${cleanUrl}/models`);
+    candidateEndpoints.push(`${rootUrl}/v1/models`);
+    candidateEndpoints.push(`${rootUrl}/models`);
+    candidateEndpoints.push(`${rootUrl}/api/v1/models`);
     candidateEndpoints.push(`${cleanUrl}/api/tags`);
+
+    const uniqueEndpoints = Array.from(new Set(candidateEndpoints));
 
     const headers: Record<string, string> = {
       Accept: "application/json",
@@ -86,8 +108,12 @@ export async function POST(request: Request) {
     let lastStatus = 0;
     let fetchedData: any = null;
     let successfulEndpoint = "";
+    let authFailedMsg = "";
 
-    for (const endpoint of candidateEndpoints) {
+    for (const endpoint of uniqueEndpoints) {
+      // 401/403 是鉴权问题而不是路径问题：同一个 key 换端点重试必然同样被拒，
+      // 提前退出，省掉对每个端点的白等。
+      if (lastStatus === 401 || lastStatus === 403) break;
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 12000);
@@ -102,20 +128,24 @@ export async function POST(request: Request) {
         lastStatus = resp.status;
 
         if (resp.ok) {
-          const json = await resp.json();
+          const json = await resp.json().catch(() => null);
           if (json && (Array.isArray(json.data) || Array.isArray(json.models) || Array.isArray(json))) {
             fetchedData = json;
             successfulEndpoint = endpoint;
             break;
           }
         } else if (resp.status === 401 || resp.status === 403) {
-          const errBody = await resp.text();
-          let msg = "API Key 无效或未授权 (HTTP " + resp.status + ")";
+          const errBody = await resp.text().catch(() => "");
+          let msg = `中转站返回 HTTP ${resp.status} 未授权`;
           try {
             const parsed = JSON.parse(errBody);
-            if (parsed.error?.message) msg += ": " + parsed.error.message;
-          } catch {}
-          return NextResponse.json({ success: false, error: msg }, { status: 401 });
+            const rMsg = parsed.error?.message || (typeof parsed.error === "string" ? parsed.error : "") || parsed.message || parsed.detail;
+            if (rMsg) msg += `（${rMsg}）`;
+          } catch {
+            if (errBody && errBody.length < 120) msg += `（${errBody.trim()}）`;
+          }
+          authFailedMsg = msg;
+          lastStatus = resp.status;
         } else {
           lastError = `HTTP ${resp.status} ${resp.statusText}`;
         }
@@ -129,9 +159,18 @@ export async function POST(request: Request) {
     }
 
     if (!fetchedData) {
+      if (lastStatus === 401 || lastStatus === 403) {
+        return NextResponse.json({
+          success: false,
+          error: `${authFailedMsg || "第三方中转站返回 HTTP 401/403 未授权"}。\n`
+            + `常见原因：① API Key/令牌填写错误或已过期；② 该中转站（如 OneAPI / NewAPI / 聚合平台）在后台未对该令牌开放「/v1/models 模型列表查询」权限（很多中转站普通令牌只开放对话聊天，屏蔽了查询模型列表接口）。\n`
+            + `💡 解决建议：在中转站后台检查令牌权限，或直接在「⚙️ 添加模型」中填入模型名称与 Slug（例如 gpt-4o、claude-3-5-sonnet、deepseek-chat 等）即可直接正常调用！`,
+        }, { status: 401 });
+      }
+
       return NextResponse.json({
         success: false,
-        error: `未能从提供的 Base URL 成功拉取模型列表（状态：${lastError || lastStatus || "无法连接"}）。请确认 Base URL 路径是否正确，或 API Key 是否具备访问权限。`,
+        error: `未能从提供的 Base URL 成功拉取模型列表（状态：${lastError || lastStatus || "无法连接"}）。请确认 Base URL 路径是否正确。`,
       }, { status: 400 });
     }
 

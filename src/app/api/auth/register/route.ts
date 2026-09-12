@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     const info = insertStmt.run(username, hash, salt, now);
     const userId = Number(info.lastInsertRowid);
 
-    // Seed default models for user
+    // Seed default models for user (统一从 model_defaults 取，注册即标记已 seed)
     seedUserDefaultModels(db, userId);
 
     // Clone admin prompts if available

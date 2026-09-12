@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import { DEFAULT_MODELS } from "./model_defaults";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "app.db");
@@ -36,7 +37,9 @@ export function initDb(db: Database.Database) {
       salt TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'user',
       created_at TEXT NOT NULL,
-      prompts_seeded INTEGER NOT NULL DEFAULT 0
+      prompts_seeded INTEGER NOT NULL DEFAULT 0,
+      models_seeded INTEGER NOT NULL DEFAULT 0,
+      models_deleted TEXT NOT NULL DEFAULT '[]'
     );
 
     CREATE TABLE IF NOT EXISTS sessions (
@@ -121,7 +124,23 @@ export function initDb(db: Database.Database) {
       ON users(username COLLATE NOCASE);
     `);
   } catch {
-    // Ignore index creation collision if already exists
+    // index already exists or ignore
+  }
+
+  try {
+    db.exec(`
+      ALTER TABLE users ADD COLUMN models_seeded INTEGER NOT NULL DEFAULT 0;
+    `);
+  } catch {
+    // column already exists
+  }
+
+  try {
+    db.exec(`
+      ALTER TABLE users ADD COLUMN models_deleted TEXT NOT NULL DEFAULT '[]';
+    `);
+  } catch {
+    // column already exists
   }
 
   // Seed default admin if table is empty
@@ -139,50 +158,23 @@ export function initDb(db: Database.Database) {
     `);
     const info = insertUser.run(adminUser, hash, salt, now);
     seedUserDefaultModels(db, Number(info.lastInsertRowid));
+    db.prepare("UPDATE users SET models_seeded = 1 WHERE id = ?").run(Number(info.lastInsertRowid));
   }
 }
 
 export function seedUserDefaultModels(db: Database.Database, userId: number) {
-  const seedModels = [
-    {
-      model_id: "ark-plan-text",
-      name: "火山 Agent Plan（文本+图片理解）",
-      provider: "字节跳动",
-      base_url: "https://ark.cn-beijing.volces.com/api/plan/v3/chat/completions",
-      protocol: "OpenAI 兼容协议",
-      type: "text",
-      model_slug: "ark-code-latest",
-      status: "active",
-    },
-    {
-      model_id: "ark-image",
-      name: "火山 Seedream 4.0 (生图)",
-      provider: "字节跳动",
-      base_url: "https://ark.cn-beijing.volces.com/api/v3/images/generations",
-      protocol: "OpenAI 兼容协议",
-      type: "image",
-      model_slug: "doubao-image",
-      status: "active",
-    },
-    {
-      model_id: "seedance-mini-video",
-      name: "Seedance 2.0 Mini (视频生成)",
-      provider: "Seedance",
-      base_url: "https://api.seedance.com/v1/video",
-      protocol: "Seedance 协议",
-      type: "video",
-      model_slug: "seedance-mini",
-      status: "active",
-    },
-  ];
-
+  // 与 /api/data/models 的 GET 懒加载共用同一份默认配置，避免两处定义漂移
   const stmt = db.prepare(`
     INSERT OR IGNORE INTO user_models
     (user_id, model_id, name, provider, base_url, protocol, type, model_slug, status, api_key)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '')
   `);
 
-  for (const m of seedModels) {
-    stmt.run(userId, m.model_id, m.name, m.provider, m.base_url, m.protocol, m.type, m.model_slug, m.status);
-  }
+  const tx = db.transaction(() => {
+    for (const m of DEFAULT_MODELS) {
+      stmt.run(userId, m.model_id, m.name, m.provider, m.base_url, m.protocol, m.type, m.model_slug, m.status);
+    }
+    db.prepare("UPDATE users SET models_seeded = 1 WHERE id = ?").run(userId);
+  });
+  tx();
 }

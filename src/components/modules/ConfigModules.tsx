@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Layers, Cpu, Sparkles, Save, Check, Key, ExternalLink, ShieldCheck, RefreshCw } from "lucide-react";
+import { Layers, Cpu, Sparkles, Save, Check, Key, ExternalLink, ShieldCheck, RefreshCw, Trash2, RotateCcw } from "lucide-react";
 import type { AIModel } from "@/types";
 
 export function PromptsModule() {
@@ -91,6 +91,48 @@ export function ModelsModule() {
     }
   };
 
+  const clearAll = async () => {
+    if (!confirm("⚠️ 确定要清空所有已配置的大模型吗？清空后各模块将无法使用模型，但您可以随时点击“恢复默认”一键重置。")) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/data/models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clearAll: true }),
+      });
+      if (res.ok) {
+        setModels([]);
+        // 同步 legacy 端的本地缓存：清掉旧列表并把空列表写进 localStorage，
+        // 避免 legacy 页面刷新后读到残留的 gs_user_models 又把模型装回来。
+        try { localStorage.setItem("gs_user_models", JSON.stringify([])); } catch {}
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetDefaults = async () => {
+    if (!confirm("🔄 确定要恢复系统预设的默认大模型配置吗？")) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/data/models", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resetDefaults: true }),
+      });
+      if (res.ok) {
+        try { localStorage.setItem("gs_deleted_models", JSON.stringify([])); } catch {}
+        fetchModels();
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchModels();
   }, []);
@@ -108,15 +150,47 @@ export function ModelsModule() {
           </p>
         </div>
 
-        <button
-          onClick={fetchModels}
-          className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={resetDefaults}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors text-xs flex items-center space-x-1.5"
+            title="恢复默认预设模型"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-blue-400" />
+            <span>恢复默认</span>
+          </button>
+          <button
+            onClick={clearAll}
+            className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl transition-colors text-xs flex items-center space-x-1.5"
+            title="清空所有模型"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>一键清除所有模型</span>
+          </button>
+          <button
+            onClick={fetchModels}
+            className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {models.length === 0 ? (
+        <div className="p-12 text-center border border-dashed border-slate-800 rounded-2xl bg-slate-900/30">
+          <div className="text-3xl mb-3">📭</div>
+          <div className="text-sm font-semibold text-slate-300 mb-1">暂无已配置的模型</div>
+          <div className="text-xs text-slate-500 mb-4">您可以点击右上角“添加自定义模型”，或点击下方恢复系统默认模型。</div>
+          <button
+            onClick={resetDefaults}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition-colors inline-flex items-center space-x-1.5"
+          >
+            <RotateCcw className="w-3.5 h-3.5 mr-1" />
+            恢复默认模型 (12个)
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {models.map((m) => (
           <div key={m.id} className="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
@@ -152,7 +226,8 @@ export function ModelsModule() {
             </div>
           </div>
         ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

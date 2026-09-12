@@ -9763,6 +9763,12 @@ async function bootAppData() {
     var mr = await (await fetch('/api/data/models')).json();
     // 模型：按用户隔离，不复用管理员默认。空数组就是空（新用户需自行添加）
     window._userModelsCache = (mr && mr.success && Array.isArray(mr.models)) ? mr.models : [];
+    if (window._userModelsCache.length > 0) window._userModelsCache = mergeModelDefaults(window._userModelsCache, false);
+    // 服务端保存的删除记录（多端同步），覆盖本地
+    if (mr && mr.success && Array.isArray(mr.deletedIds)) {
+      window._userDeletedModels = mr.deletedIds.map(String);
+      try { localStorage.setItem('gs_deleted_models', JSON.stringify(window._userDeletedModels)); } catch(e2) {}
+    }
   } catch (e) { window._userModelsCache = []; }
   window._userModelsLoaded = true;
   try {
@@ -14638,19 +14644,31 @@ var defaultModels = [
 }
 ];
 
-// 用户删除的默认模型 id 列表（缓存 + 后端持久化，随 models 一起存）
+// 用户删除的默认模型 id 列表（缓存 + localStorage + 后端持久化，随 models 一起存）
+// localStorage 持久化是关键：只存内存的话，clearAllModels 清空后一刷新，
+// loadModels 发现缓存为空就会回落到 defaultModels，把刚清掉的又全部装回来。
 window._userDeletedModels = null;
 function getDeletedModelIds() {
-  return window._userDeletedModels || [];
+  if (window._userDeletedModels) return window._userDeletedModels;
+  try {
+    var raw = localStorage.getItem('gs_deleted_models');
+    if (raw) {
+      var parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) { window._userDeletedModels = parsed; return parsed; }
+    }
+  } catch(e) {}
+  return [];
 }
 
 function saveDeletedModelIds(ids) {
   window._userDeletedModels = ids || [];
-  // 与 models 一起推送（saveModels 会带上 deletedIds）
-  if (window.currentUser && modelsCache) saveModels(modelsCache);
+  try { localStorage.setItem('gs_deleted_models', JSON.stringify(ids || [])); } catch(e) {}
+  // 只更新内存与 localStorage，不再在此自动推服务端：
+  // 若在推送时 getDeletedModelIds 还是旧值，服务端"按缺省补全"会把刚删的模型塞回去（竞态复活）。
+  // 持久化交给调用方：它会把新 id 加进数组后，用 saveModels 发一次带完整 deletedIds 的 POST。
 }
 
-function mergeModelDefaults(savedModels) {
+function mergeModelDefaults(savedModels, persist) {
   var removedIds = { 'seedance-video': true };
   var deletedIds = getDeletedModelIds();
   for (var x = 0; x < deletedIds.length; x++) removedIds[deletedIds[x]] = true;
@@ -14680,7 +14698,7 @@ function mergeModelDefaults(savedModels) {
   for (var d = 0; d < defaultModels.length; d++) {
     if (!existingIds[defaultModels[d].id] && !removedIds[defaultModels[d].id]) merged.push(JSON.parse(JSON.stringify(defaultModels[d])));
   }
-  saveModels(merged);
+  if (persist) saveModels(merged);
   return merged;
 }
 
@@ -14688,12 +14706,22 @@ function mergeModelDefaults(savedModels) {
 window._userModelsCache = null;
 
 function loadModels() {
-  // 已登录：模型完全按用户后端数据（可能为空），不注入默认，保证隔离
-  if (window._userModelsLoaded) {
-    return Array.isArray(window._userModelsCache) ? JSON.parse(JSON.stringify(window._userModelsCache)) : [];
+  if (window._userModelsLoaded && Array.isArray(window._userModelsCache)) {
+    // 缓存为空数组也是合法状态（用户清空过），直接返回，不要回落默认
+    return window._userModelsCache.length > 0 ? mergeModelDefaults(window._userModelsCache, false) : [];
   }
-  // 未登录/未加载：返回默认集（仅用于占位，不会被保存）
-  return JSON.parse(JSON.stringify(defaultModels));
+  try {
+    var local = localStorage.getItem('gs_user_models');
+    if (local) {
+      var parsed = JSON.parse(local);
+      // localStorage 里存了显式的空数组（用户清空后写入的），同样视为合法空列表
+      if (Array.isArray(parsed) && parsed.length > 0) return mergeModelDefaults(parsed, false);
+      if (Array.isArray(parsed) && parsed.length === 0 && getDeletedModelIds().length > 0) return [];
+    }
+  } catch(e) {}
+  var mergedDefaults = mergeModelDefaults(JSON.parse(JSON.stringify(defaultModels)), false);
+  // 未登录占位：不持久化，不覆盖用户已清空的 localStorage
+  return mergedDefaults;
 }
 
 function normalizeSeedanceTaskUrl(url) {
@@ -14724,9 +14752,11 @@ function getModelRuntimeConfig(id, fallback) {
 function saveModels(models) {
   window._userModelsCache = models;
   if (window.currentUser) {
+    // 必须带上 deletedIds：服务端保存时会补回缺失的默认模型，
+    // 不带的话用户删掉的默认模型会在下一次任意保存时被"复活"。
     fetch('/api/data/models', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ models: models })
+      body: JSON.stringify({ models: models, deletedIds: getDeletedModelIds() })
     }).catch(function(e) { console.warn('[saveModels] push failed', e && e.message); });
   }
 }
@@ -15007,13 +15037,15 @@ async function deleteModel(id) {
   if (!target) return;
   if (!confirm('确定要删除模型配置：' + target.name + ' 吗？')) return;
   models = models.filter(function(m) { return m.id !== id; });
+  // 先更新缓存再更新删除记录：saveDeletedModelIds 内部会触发 saveModels(当前缓存)，
+  // 顺序反了会把仍含被删模型的旧列表推回服务端（竞态下后到者胜，模型被"复活"）。
+  modelsCache = models;
   var deletedIds = getDeletedModelIds();
   if (deletedIds.indexOf(id) === -1) {
     deletedIds.push(id);
     saveDeletedModelIds(deletedIds);
   }
   saveModels(models);
-  modelsCache = models;
   try {
     await syncProjectConfig('models', { models: models, deletedIds: deletedIds });
     renderModelList();

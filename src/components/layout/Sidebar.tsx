@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import type { User } from "@/types";
 
 interface SidebarProps {
@@ -22,6 +22,15 @@ export function Sidebar({
 }: SidebarProps) {
   const isAdmin = user?.role === "admin";
   const getNavClass = (section: string) => (currentSection === section ? "nav-item active" : "nav-item");
+
+  // SSR 时 user 恒为 null，客户端挂载后异步拉到真实用户。若直接用 isAdmin 决定
+  // 管理员可见的导航项显示/隐藏，服务端与客户端首帧不一致会触发 hydration mismatch。
+  // 因此首帧统一按"非管理员"渲染，挂载后再依据真实用户更新。
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  const showAdminItems = mounted && isAdmin;
 
   return (
     <aside className="sidebar">
@@ -235,7 +244,8 @@ export function Sidebar({
                 <button
           className={getNavClass("users")}
           id="nav-users"
-          style={isAdmin ? undefined : { display: "none" }}
+          suppressHydrationWarning
+          style={showAdminItems ? undefined : { display: "none" }}
           onClick={() => onSelectSection("users")}
         >
           <svg className="nav-icon" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
