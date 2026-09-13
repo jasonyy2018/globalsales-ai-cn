@@ -7,12 +7,17 @@ function switchAuthTab(tab) {
   // 选中态用的渐变要和 HTML 里写死的那条**逐字一致**，否则切一次 tab
   // 就会掉回实色，看着像 bug。
   var ON = 'linear-gradient(to right,#4f46e5,#9333ea)';
-  document.getElementById('authFormLogin').style.display = isLogin ? 'block' : 'none';
-  document.getElementById('authFormRegister').style.display = isLogin ? 'none' : 'block';
-  document.getElementById('authTabLogin').style.background = isLogin ? ON : 'transparent';
-  document.getElementById('authTabLogin').style.color = isLogin ? '#fff' : 'var(--text-secondary)';
-  document.getElementById('authTabRegister').style.background = isLogin ? 'transparent' : ON;
-  document.getElementById('authTabRegister').style.color = isLogin ? 'var(--text-secondary)' : '#fff';
+  // 逐个判空：部分运行环境/旧构建里这些 id 可能缺失，任何一处 null 抛
+  // TypeError 都会中断后续逻辑（toast 也不显示），用户只看到"没反应"。
+  var el;
+  el = document.getElementById('authFormLogin');
+  if (el) el.style.display = isLogin ? 'block' : 'none';
+  el = document.getElementById('authFormRegister');
+  if (el) el.style.display = isLogin ? 'none' : 'block';
+  el = document.getElementById('authTabLogin');
+  if (el) { el.style.background = isLogin ? ON : 'transparent'; el.style.color = isLogin ? '#fff' : 'var(--text-secondary)'; }
+  el = document.getElementById('authTabRegister');
+  if (el) { el.style.background = isLogin ? 'transparent' : ON; el.style.color = isLogin ? 'var(--text-secondary)' : '#fff'; }
 }
 
 function _authShowErr(id, msg) {
@@ -25,7 +30,7 @@ async function authLogin() {
   var password = document.getElementById('authPassword').value;
   if (!username || !password) { _authShowErr('authError', '请输入用户名和密码'); return; }
   var btn = document.getElementById('authBtnLogin');
-  btn.disabled = true; btn.textContent = '登录中...';
+  if (btn) { btn.disabled = true; btn.textContent = '登录中...'; }
   try {
     var resp = await fetch('/api/auth/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -38,7 +43,7 @@ async function authLogin() {
   } catch (e) {
     _authShowErr('authError', '网络错误：' + (e && e.message || ''));
   } finally {
-    btn.disabled = false; btn.textContent = '登录';
+    if (btn) { btn.disabled = false; btn.textContent = '登录'; }
   }
 }
 
@@ -50,7 +55,7 @@ async function authRegister() {
   if (p1.length < 6) { _authShowErr('authErrorReg', '密码至少 6 位'); return; }
   if (p1 !== p2) { _authShowErr('authErrorReg', '两次密码不一致'); return; }
   var btn = document.getElementById('authBtnRegister');
-  btn.disabled = true; btn.textContent = '注册中...';
+  if (btn) { btn.disabled = true; btn.textContent = '注册中...'; }
   try {
     var resp = await fetch('/api/auth/register', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -63,7 +68,7 @@ async function authRegister() {
   } catch (e) {
     _authShowErr('authErrorReg', '网络错误：' + (e && e.message || ''));
   } finally {
-    btn.disabled = false; btn.textContent = '注册';
+    if (btn) { btn.disabled = false; btn.textContent = '注册'; }
   }
 }
 
@@ -78,10 +83,16 @@ async function authLogout() {
   location.reload();
 }
 
+// 隐藏/显示登录门禁（authGate 是 overlay，部分运行方式下可能缺失，判空）
+function _setAuthGateDisplay(display) {
+  var gate = document.getElementById('authGate');
+  if (gate) gate.style.display = display;
+}
+
 // 登录成功后：隐藏门禁 → 应用角色可见性 → 加载用户数据 → 渲染
 async function onLoggedIn() {
   _authShowErr('authError', ''); _authShowErr('authErrorReg', '');
-  document.getElementById('authGate').style.display = 'none';
+  _setAuthGateDisplay('none');
   if (typeof applyRoleVisibility === 'function') applyRoleVisibility(window.currentUser.role);
   if (typeof updateUserBadge === 'function') updateUserBadge();
   if (typeof bootAppData === 'function') { await bootAppData(); }
@@ -94,7 +105,7 @@ async function checkAuthAndBoot() {
     var data = await resp.json();
     if (data && data.success && data.user) {
       window.currentUser = data.user;
-      document.getElementById('authGate').style.display = 'none';
+      _setAuthGateDisplay('none');
       if (typeof applyRoleVisibility === 'function') applyRoleVisibility(data.user.role);
       if (typeof updateUserBadge === 'function') updateUserBadge();
       if (typeof bootAppData === 'function') { await bootAppData(); }
@@ -102,7 +113,7 @@ async function checkAuthAndBoot() {
     }
   } catch (e) {}
   // 未登录：显示门禁
-  document.getElementById('authGate').style.display = 'flex';
+  _setAuthGateDisplay('flex');
 }
 
 // ============ 角色可见性 / 用户中心 / 用户管理 ============
@@ -7156,7 +7167,7 @@ function init() {
   // 协议检测：file:// 协议下无法调用 API（CORS 限制）
   if (window.location.protocol === 'file:') {
     showToast('⚠️ 检测到本地文件打开方式，请通过 python server.py 启动后访问 http://localhost:8766');
-    document.getElementById('authGate').style.display = 'none';
+    _setAuthGateDisplay('none');
     return;
   }
 

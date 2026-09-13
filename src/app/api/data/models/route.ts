@@ -227,9 +227,11 @@ export async function POST(request: Request) {
     // 只有当客户端**显式**传了 deletedIds 字段时才视为权威覆盖；
     // 没传（undefined）则保留既有记录，避免陈旧保存清掉删除项。
     const explicit = "deletedIds" in body && Array.isArray(body.deletedIds);
-    const mergedDeleted = explicit
+    const currentModelIds = new Set(models.map((m: any) => String(m.id || m.model_id || "")));
+    let mergedDeleted = explicit
       ? clientDeleted
       : Array.from(new Set([...prevDeleted, ...clientDeleted]));
+    mergedDeleted = mergedDeleted.filter((id) => !currentModelIds.has(id));
     db.prepare("UPDATE users SET models_deleted = ? WHERE id = ?")
       .run(JSON.stringify(mergedDeleted), user.id);
     return NextResponse.json({ success: true });
