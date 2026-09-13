@@ -1611,12 +1611,16 @@ async function _callCustomImageModel(cfg, prompt, n, refImageUrl) {
   n = Math.max(1, Math.min(6, parseInt(n, 10) || 1));
   var isProxy = (window.location.protocol !== 'file:');
   var fetchSingleBatch = async function() {
-    var reqBody = { model: cfg.model || 'gpt-image-1', prompt: prompt, n: n, size: '1024x1024' };
-    if (refImageUrl) reqBody.image = refImageUrl;
     var targetUrl = cfg.baseUrl || '';
     if (targetUrl.includes('/chat/completions')) {
       targetUrl = targetUrl.replace(/\/chat\/completions$/, '/images/generations');
     }
+    var modelSlug = (cfg.model || 'gpt-image-1').trim();
+    if (targetUrl.includes('agnes-ai.com') || targetUrl.includes('agnes')) {
+      modelSlug = modelSlug.replace(/^agnes\//i, '');
+    }
+    var reqBody = { model: modelSlug, prompt: prompt, n: n, size: '1024x1024' };
+    if (refImageUrl) reqBody.image = refImageUrl;
     var url, headers, body;
     if (isProxy) {
       url = '/api/custom_model';
@@ -1735,45 +1739,84 @@ var VIDEO_MODEL_BUILTIN = {
   'minimax-video': function(p, cb, d, o, i) { return callMiniMaxVideo(p, cb, d, o, i); }
 };
 function resolveVideoModelCall(modelId) {
-  if (VIDEO_MODEL_BUILTIN[modelId]) return VIDEO_MODEL_BUILTIN[modelId];
+  var cfg = null;
+  try {
+    var ms = getModels();
+    for (var i = 0; i < ms.length; i++) {
+      if (ms[i].id === modelId) { cfg = ms[i]; break; }
+    }
+  } catch (e) {}
+
   var short = _videoShortKey(modelId);
-  if (short === 'agnes') return VIDEO_MODEL_BUILTIN['agnes-video'];
-  if (short === 'agnes25') return VIDEO_MODEL_BUILTIN['agnes-video-25'];
+  var customModelName = cfg ? (cfg.model || cfg.model_slug || '').replace(/^agnes\//, '') : '';
+  var customApiKey = cfg ? (cfg.apiKey || cfg.api_key || '') : '';
+
+  if (short === 'agnes25') {
+    return function(p, cb, d, o, i) {
+      o = Object.assign({}, o, {
+        model: customModelName || 'agnes-video-2.5-flash',
+        apiKey: customApiKey || AGNES_API_KEY
+      });
+      return callAgnesVideo25(p, cb, d, o, i);
+    };
+  }
+  if (short === 'agnes') {
+    return function(p, cb, d, o, i) {
+      o = Object.assign({}, o, {
+        model: customModelName || 'agnes-video-v2.0',
+        apiKey: customApiKey || AGNES_API_KEY
+      });
+      return callAgnesVideo(p, cb, d, o, i);
+    };
+  }
+  if (VIDEO_MODEL_BUILTIN[modelId]) return VIDEO_MODEL_BUILTIN[modelId];
   if (short === 'seedance-mini') return VIDEO_MODEL_BUILTIN['seedance-mini-video'];
   if (short === 'hunyuan') return VIDEO_MODEL_BUILTIN['hunyuan-video'];
   if (short === 'minimax') return VIDEO_MODEL_BUILTIN['minimax-video'];
   return null;
 }
 
-// 把模块下拉框选的视频模型 id 映射回旧的短 key（seedance-mini/agnes/hunyuan/minimax）
+// 把模块下拉框选的视频模型 id 映射回短 key（seedance-mini/agnes/agnes25/hunyuan/minimax）
 function _videoShortKey(modelId) {
   if (!modelId) return null;
   var map = { 'seedance-mini-video': 'seedance-mini', 'agnes-video': 'agnes', 'agnes-video-25': 'agnes25', 'hunyuan-video': 'hunyuan', 'minimax-video': 'minimax' };
   if (map[modelId]) return map[modelId];
-  var lower = String(modelId).toLowerCase();
-  if (lower.indexOf('agnes-video-2.5') !== -1 || lower.indexOf('agnes-video-25') !== -1 || lower.indexOf('agnes-2.5') !== -1) return 'agnes25';
-  if (lower.indexOf('agnes') !== -1) return 'agnes';
-  if (lower.indexOf('seedance') !== -1) return 'seedance-mini';
-  if (lower.indexOf('hunyuan') !== -1) return 'hunyuan';
-  if (lower.indexOf('minimax') !== -1 || lower.indexOf('hailuo') !== -1) return 'minimax';
+
+  var cfg = null;
+  try {
+    var ms = getModels();
+    for (var i = 0; i < ms.length; i++) {
+      if (ms[i].id === modelId) { cfg = ms[i]; break; }
+    }
+  } catch (e) {}
+
+  var checkStr = (modelId + ' ' + (cfg ? ((cfg.model || '') + ' ' + (cfg.model_slug || '') + ' ' + (cfg.name || '') + ' ' + (cfg.endpoint || '') + ' ' + (cfg.provider || '')) : '')).toLowerCase();
+
+  if (checkStr.indexOf('2.5') !== -1 || checkStr.indexOf('25') !== -1 || checkStr.indexOf('flash') !== -1) {
+    if (checkStr.indexOf('agnes') !== -1) return 'agnes25';
+  }
+  if (checkStr.indexOf('agnes') !== -1) return 'agnes';
+  if (checkStr.indexOf('seedance') !== -1) return 'seedance-mini';
+  if (checkStr.indexOf('hunyuan') !== -1) return 'hunyuan';
+  if (checkStr.indexOf('minimax') !== -1 || checkStr.indexOf('hailuo') !== -1) return 'minimax';
   return null;
 }
 function syncVideoModelFromPicker(moduleKey) {
   var id = getPickedModelId(moduleKey);
   var short = _videoShortKey(id);
-  if (!short) short = 'agnes'; // 默认回退到当前可用主力 Agnes AI Video
+  if (!short) short = 'agnes25'; // 默认优先尝试 Agnes 2.5
   if (moduleKey === 'video-create') { vcSelectedModel = short; }
   else { selectedVideoModel = short; }
   return short;
 }
-async function callModuleVideo(moduleKey, prompt, onProgress, dur) {
+async function callModuleVideo(moduleKey, prompt, onProgress, dur, opts, imageRef) {
   var picked = getPickedModelId(moduleKey);
   if (!picked) throw new Error('尚未配置可用的视频大模型，请到「大模型配置」添加一个');
   var fn = resolveVideoModelCall(picked);
   if (!fn) throw new Error('视频模型「' + (modelNameById(picked) || picked) + '」暂不支持（自定义视频模型协议差异大，目前只支持内置几家），请在上方下拉框换一个。');
   var url;
   try {
-    url = await fn(prompt, onProgress, dur);
+    url = await fn(prompt, onProgress, dur, opts, imageRef);
   } catch (e) {
     console.warn('[callModuleVideo:' + moduleKey + '] ' + picked + ' failed:', e && e.message);
     var name = modelNameById(picked) || picked;
@@ -2019,24 +2062,25 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
   var okRatios = ['21:9', '16:9', '4:3', '1:1', '3:4', '9:16'];
   var ratio = opts.aspectRatio && okRatios.indexOf(opts.aspectRatio) !== -1 ? opts.aspectRatio : '16:9';
 
-  // V2.5 不接受 mode 字段，也不支持参考图（文档化功能），有图就回落 V2.0
-  if (imageRef) {
-    return callAgnesVideo(prompt, onProgress, durationSec, opts, imageRef);
-  }
+  var modelName = (opts && opts.model) || 'agnes-video-2.5-flash';
+  modelName = String(modelName).replace(/^agnes\//, '');
 
   var payload = {
-    model: 'agnes-video-2.5',
+    model: modelName,
     prompt: prompt,
-    // seconds 必须是**字符串**：2026-08-24 实测传数字会 400
+    mode: 'ti2vid',
     seconds: String(secs),
-    // ⚠️ 不要传 mode！V2.5 会返回 {"code":"invalid_request","message":"invalid mode"}
     size: '720P',
     aspect_ratio: ratio,
     n: 1
   };
+  if (imageRef) {
+    payload.image = imageRef;
+  }
 
+  var apiKey = (opts && opts.apiKey) || AGNES_API_KEY;
   var submitHeaders25 = { 'Content-Type': 'application/json' };
-  if (AGNES_API_KEY) submitHeaders25['Authorization'] = 'Bearer ' + AGNES_API_KEY;
+  if (apiKey) submitHeaders25['Authorization'] = 'Bearer ' + apiKey;
   var submitResp = await fetch(AGNES_V25_SUBMIT_URL, {
     method: 'POST',
     headers: submitHeaders25,
@@ -2045,8 +2089,6 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
   var submitData = await submitResp.json().catch(function() { return {}; });
   if (!submitResp.ok) {
     var em = (submitData && submitData.error && submitData.error.message) || (submitData && submitData.message) || '';
-    // 2026-08-24 复测：厂商**已上线**（不再返回 model_not_found），所以 503 的含义变了 ——
-    // 现在是"队列/推理槽占满"这类暂时状态，不能再报"尚未上线"误导用户。
     // 遇到限流或需要 Token Plan 付费计划时，自动平滑切换至可用的 Agnes Video V2.0
     if (submitResp.status === 429 || /rate limit|Token Plan/i.test(em)) {
       console.log('[callAgnesVideo25] V2.5 达到限制或需 Token Plan，自动回落至 Agnes Video V2.0');
@@ -2057,7 +2099,7 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
     if (/no available channel|model_not_found/i.test(em)) {
       throw new Error('Agnes Video 2.5 厂商侧当前不可用（' + em + '）。可先用 Agnes Video V2.0。');
     }
-    throw new Error('Agnes Video 2.5 提交失败 HTTP ' + submitResp.status + '：' + JSON.stringify(submitData).slice(0, 300));
+    throw new Error('Agnes Video 2.5 提交失败 HTTP ' + submitResp.status + '：' + (em || JSON.stringify(submitData).slice(0, 300)));
   }
   if (submitData.error) throw new Error(submitData.error.message || JSON.stringify(submitData.error));
   var taskId = submitData.id;
@@ -2068,7 +2110,7 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
   for (var i = 0; i < maxRetries; i++) {
     await new Promise(function(r) { setTimeout(r, 3000); });
     var qHeaders25 = {};
-    if (AGNES_API_KEY) qHeaders25['Authorization'] = 'Bearer ' + AGNES_API_KEY;
+    if (apiKey) qHeaders25['Authorization'] = 'Bearer ' + apiKey;
     var queryResp = await fetch(AGNES_V25_QUERY_URL + '/' + encodeURIComponent(taskId), {
       method: 'GET',
       headers: qHeaders25
@@ -5341,12 +5383,11 @@ async function callArkImage(prompt, num, refImageUrl) {
       watermark: false
     };
     if (refImageUrl) body.image_url = refImageUrl;
+    var arkHeaders = { 'Content-Type': 'application/json' };
+    if (ARK_API_KEY) arkHeaders['Authorization'] = 'Bearer ' + ARK_API_KEY;
     var resp = await fetch(ARK_IMAGE_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + ARK_API_KEY
-      },
+      headers: arkHeaders,
       body: JSON.stringify(body)
     });
     var data = await resp.json().catch(function() { return {}; });
@@ -10110,46 +10151,28 @@ async function generateVideo() {
 
   try {
     // 显示进度
-    var modelLabels = { hunyuan: '腾讯混元 HunyuanVideo', minimax: 'MiniMax Hailuo', agnes: 'Agnes AI video-v2.0', agnes25: 'Agnes AI Video 2.5', 'seedance-mini': 'Seedance 2 Mini' };
-    var modelLabel = modelLabels[selectedVideoModel] || 'Seedance 2 Mini';
+    var pickedVideoId = getPickedModelId('video');
+    var genVideoModelName = modelNameById(pickedVideoId) || '视频大模型';
     var wrapper = document.getElementById('videoResultWrapper');
     wrapper.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-secondary);">'
-      + '<p style="font-size:14px;">🎬 ' + modelLabel + ' 正在生成视频...</p>'
+      + '<p style="font-size:14px;">🎬 ' + genVideoModelName + ' 正在生成视频...</p>'
       + '<p style="font-size:12px;margin-top:8px;">预计需要1-3分钟，请耐心等待</p>'
       + '<p id="videoProgressText" style="font-size:11px;margin-top:6px;color:var(--accent-light);">提交任务中...</p>'
       + '</div>';
     document.getElementById('videoResult').style.display = 'block';
 
     // 根据选择的模型调用对应 API
-    var videoUrl;
     var progressCb = function(poll, maxPoll, status) {
       var prog = document.getElementById('videoProgressText');
       if (prog) prog.textContent = '轮询第 ' + poll + '/' + maxPoll + ' 次 | 状态: ' + (status || 'processing');
     };
     
-    if (selectedVideoModel === 'hunyuan') {
-      videoUrl = await callHunyuanVideo(videoPrompt, progressCb, durationSec, null, null);
-    } else if (selectedVideoModel === 'agnes') {
-      videoUrl = await callAgnesVideo(videoPrompt, progressCb, durationSec, null, null);
-    } else if (selectedVideoModel === 'agnes25') {
-      videoUrl = await callAgnesVideo25(videoPrompt, progressCb, durationSec, null, null);
-    } else if (selectedVideoModel === 'seedance-mini') {
-      videoUrl = await callSeedanceMiniVideo(videoPrompt, progressCb, durationSec, null, null);
-    } else {
-      videoUrl = await callMiniMaxVideo(videoPrompt, progressCb, durationSec, null, null);
-    }
+    var videoUrl = await callModuleVideo('video', videoPrompt, progressCb, durationSec);
 
     // 渲染视频
     var isHunyuan = selectedVideoModel === 'hunyuan';
     var isAgnes = selectedVideoModel === 'agnes' || selectedVideoModel === 'agnes25' || selectedVideoModel === 'seedance-mini';
-    var modelTags = {
-      hunyuan: '<span style="font-size:12px;color:var(--text-secondary);background:var(--bg-tertiary);padding:4px 10px;border-radius:6px;">🤖 腾讯混元 hy-video-1.5 生成</span>',
-      minimax: '<span style="font-size:12px;color:var(--text-secondary);background:var(--bg-tertiary);padding:4px 10px;border-radius:6px;">🤖 MiniMax Hailuo 生成</span>',
-      agnes: '<span style="font-size:12px;color:var(--text-secondary);background:var(--bg-tertiary);padding:4px 10px;border-radius:6px;">🤖 Agnes AI video-v2.0 生成</span>',
-      agnes25: '<span style="font-size:12px;color:var(--text-secondary);background:var(--bg-tertiary);padding:4px 10px;border-radius:6px;">🤖 Agnes AI Video 2.5 生成</span>',
-      'seedance-mini': '<span style="font-size:12px;color:var(--text-secondary);background:var(--bg-tertiary);padding:4px 10px;border-radius:6px;">🤖 Seedance 2 Mini 生成</span>'
-    };
-    var modelTag = modelTags[selectedVideoModel] || modelTags.agnes;
+    var modelTag = '<span style="font-size:12px;color:var(--text-secondary);background:var(--bg-tertiary);padding:4px 10px;border-radius:6px;">🤖 ' + genVideoModelName + ' 生成</span>';
 
     // 混元视频：去掉 muted，添加 id 以支持 BGM 同步
     var videoAttrs = isHunyuan
@@ -10271,8 +10294,8 @@ async function generateFullVideo() {
 
     if (segments.length === 0) { throw new Error('未能解析出分镜，请检查脚本格式（需包含【分镜1】【分镜2】等标记）'); }
 
-    var genVideoModelNames = { hunyuan: '腾讯混元 hy-video-1.5', minimax: 'MiniMax T2V-01', agnes: 'Agnes AI video-v2.0', agnes25: 'Agnes AI Video 2.5', 'seedance-mini': 'Seedance 2 Mini' };
-    var genVideoModelName = genVideoModelNames[selectedVideoModel] || 'Seedance 2 Mini';
+    var pickedVideoId = getPickedModelId('video');
+    var genVideoModelName = modelNameById(pickedVideoId) || '视频大模型';
 
     // 显示分镜进度
     var wrapper = document.getElementById('videoResultWrapper');
@@ -10305,12 +10328,7 @@ async function generateFullVideo() {
 
       try {
         var pc = (function(idx) { return function(poll, maxPoll, status) { var s = document.getElementById('seg-status-' + idx); if (s) s.textContent = '轮询 ' + poll + '/' + maxPoll; }; })(i);
-        var vUrl;
-        if (selectedVideoModel === 'hunyuan') { vUrl = await callHunyuanVideo(segPrompt, pc, segDuration, null, null); }
-        else if (selectedVideoModel === 'agnes') { vUrl = await callAgnesVideo(segPrompt, pc, segDuration, null, null); }
-        else if (selectedVideoModel === 'agnes25') { vUrl = await callAgnesVideo25(segPrompt, pc, segDuration, null, null); }
-        else if (selectedVideoModel === 'seedance-mini') { vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, null); }
-        else { vUrl = await callMiniMaxVideo(segPrompt, pc, segDuration, null, null); }
+        var vUrl = await callModuleVideo('video', segPrompt, pc, segDuration);
 
         if (vUrl) { okVideos.push({ url: vUrl, idx: i, seg: seg }); if (dot) { dot.style.background = '#10b981'; dot.style.animation = ''; } if (statusEl) statusEl.textContent = '✅'; }
         else { if (dot) { dot.style.background = '#ef4444'; dot.style.animation = ''; } if (statusEl) statusEl.textContent = '❌ 失败'; }
@@ -11353,8 +11371,8 @@ async function vcGenerateVideo() {
   errorBox.style.display = 'none';
   btn.disabled = true;
   var origBtn = btn.innerHTML;
-  var vcModelNames = { agnes: 'Agnes AI video-v2.0', agnes25: 'Agnes AI Video 2.5', hunyuan: '腾讯混元 hy-video-1.5', minimax: 'MiniMax T2V-01', 'seedance-mini': 'Seedance 2 Mini' };
-  var vcCurrentModelName = vcModelNames[vcSelectedModel] || 'Seedance 2 Mini';
+  var pickedVcId = getPickedModelId('video-create');
+  var vcCurrentModelName = modelNameById(pickedVcId) || '视频大模型';
   btn.innerHTML = '<div style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block;"></div> ' + vcCurrentModelName + ' 生成中...';
   document.getElementById('vcLoadingText').textContent = '视频生成中（' + vcCurrentModelName + '）...';
 
@@ -11365,17 +11383,7 @@ async function vcGenerateVideo() {
     };
     // 将参考图传给每个视频模型调用
     var vcRef = vcRefImageDataUrl;
-    if (vcSelectedModel === 'hunyuan') {
-      videoUrl = await callHunyuanVideo(fullPrompt, onProgress, dur, null, vcRef);
-    } else if (vcSelectedModel === 'agnes') {
-      videoUrl = await callAgnesVideo(fullPrompt, onProgress, dur, null, vcRef);
-    } else if (vcSelectedModel === 'agnes25') {
-      videoUrl = await callAgnesVideo25(fullPrompt, onProgress, dur, null, vcRef);
-    } else if (vcSelectedModel === 'seedance-mini') {
-      videoUrl = await callSeedanceMiniVideo(fullPrompt, onProgress, dur, null, vcRef);
-    } else {
-      videoUrl = await callMiniMaxVideo(fullPrompt, onProgress, dur, null, vcRef);
-    }
+    videoUrl = await callModuleVideo('video-create', fullPrompt, onProgress, dur, null, vcRef);
     if (!isValidGeneratedMediaUrl(videoUrl)) {
       throw new Error('视频生成接口未返回有效视频地址');
     }
@@ -11390,14 +11398,13 @@ async function vcGenerateVideo() {
     showToast('✅ 视频生成成功，可点击播放预览');
     // 入资产库
     if (typeof generatedVideos !== 'undefined' && Array.isArray(generatedVideos)) {
-      var vcPlatformNames = { agnes: 'Agnes AI', agnes25: 'Agnes AI Video 2.5', hunyuan: '腾讯混元', minimax: 'MiniMax', 'seedance-mini': 'Seedance 2 Mini' };
       generatedVideos.push({
         id: 'vc_' + Date.now(),
         url: videoUrl,
         content: videoUrl,
         prompt: fullPrompt,
-        platform: vcPlatformNames[vcSelectedModel] || 'Seedance 2 Mini',
-        model: vcSelectedModel,
+        platform: vcCurrentModelName,
+        model: pickedVcId,
         duration: dur,
         style: style,
         date: new Date().toLocaleString(),
@@ -11550,8 +11557,8 @@ async function vcGenerateSegments() {
   progressDiv.style.display = 'block';
   resultsDiv.style.display = 'none';
 
-  var vcModelNames = { agnes: 'Agnes AI video-v2.0', agnes25: 'Agnes AI Video 2.5', hunyuan: '腾讯混元 hy-video-1.5', minimax: 'MiniMax T2V-01', 'seedance-mini': 'Seedance 2 Mini' };
-  var modelName = vcModelNames[vcSelectedModel] || 'Seedance 2 Mini';
+  var pickedVcId = getPickedModelId('video-create');
+  var modelName = modelNameById(pickedVcId) || '视频大模型';
 
   var progressHtml = '<div style="font-size:14px;font-weight:600;margin-bottom:12px;">🎬 分镜生成进度 · ' + modelName + '</div>'
     + '<div style="font-size:13px;color:var(--text-secondary);margin-bottom:16px;">共 ' + segments.length + ' 个分镜</div>';
@@ -11584,14 +11591,8 @@ async function vcGenerateSegments() {
 
     try {
       var pc = (function(idx) { return function(poll, maxPoll, status) { var s = document.getElementById('vc-seg-status-' + idx); if (s) s.textContent = '轮询 ' + poll + '/' + maxPoll; }; })(i);
-      var vUrl;
-      // 分镜视频同样携带参考图；若用户提供了，每张片段都引用同一张
       var vcRef = vcRefImageDataUrl;
-      if (vcSelectedModel === 'hunyuan') { vUrl = await callHunyuanVideo(segPrompt, pc, segDuration, null, vcRef); }
-      else if (vcSelectedModel === 'agnes') { vUrl = await callAgnesVideo(segPrompt, pc, segDuration, null, vcRef); }
-      else if (vcSelectedModel === 'agnes25') { vUrl = await callAgnesVideo25(segPrompt, pc, segDuration, null, vcRef); }
-      else if (vcSelectedModel === 'seedance-mini') { vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, vcRef); }
-      else { vUrl = await callMiniMaxVideo(segPrompt, pc, segDuration, null, vcRef); }
+      var vUrl = await callModuleVideo('video-create', segPrompt, pc, segDuration, null, vcRef);
       if (vUrl) { okVideos.push({ url: vUrl, idx: i, seg: seg }); if (dot) { dot.style.background = '#10b981'; dot.style.animation = ''; } if (statusEl) statusEl.textContent = '✅'; }
       else { if (dot) { dot.style.background = '#ef4444'; dot.style.animation = ''; } if (statusEl) statusEl.textContent = '❌ 失败'; }
     } catch (se) {
@@ -11622,16 +11623,15 @@ async function vcGenerateSegments() {
   resultsDiv.innerHTML = resultsHtml;
 
   if (okVideos.length > 0 && typeof generatedVideos !== 'undefined' && Array.isArray(generatedVideos)) {
-    var vcPlatformNames = { agnes: 'Agnes AI', agnes25: 'Agnes AI Video 2.5', hunyuan: '腾讯混元', minimax: 'MiniMax', 'seedance-mini': 'Seedance 2 Mini' };
-    // 每个分段都入库（原来只留 okVideos[0]，其余段落白生成了）
+    // 每个分段都入库
     for (var sg = 0; sg < okVideos.length; sg++) {
       generatedVideos.push({
         id: 'vc_seg_' + Date.now() + '_' + sg,
         url: okVideos[sg].url,
         content: okVideos[sg].url,
         prompt: prompt,
-        platform: vcPlatformNames[vcSelectedModel] || 'Seedance 2 Mini',
-        model: vcSelectedModel,
+        platform: modelName,
+        model: pickedVcId,
         duration: '分段',
         style: style,
         date: new Date().toLocaleString(),
@@ -12284,6 +12284,9 @@ async function confirmImportSelectedModels() {
   for (var j = 0; j < selected.length; j++) {
     var sm = selected[j];
     var slug = sm.id;
+    if (slug.startsWith('agnes/') && (baseUrl.includes('agnes-ai.com') || provider.toLowerCase().includes('agnes'))) {
+      slug = slug.replace(/^agnes\//i, '');
+    }
     var type = sm.type || 'text';
 
     var pClean = provider.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'model';
@@ -12516,19 +12519,14 @@ var defaultModels = [
 },
 {
   "id": "agnes-video-25",
-  // 2026-08-24 复测：厂商侧**已上线**（不再是 8-19 那次的 503 model_not_found，
-  // GET /v1/models 里现在有 agnes-video-2.5），但撞上账号余额 ——
-  // POST /v1/videos → HTTP 403 {"code":"insufficient_user_quota",
-  //   "message":"预扣费额度失败, 用户剩余额度: ＄0.100000, 需要预扣费额度: ＄0.125000"}
-  // 单次 2.5 视频 $0.125，账号只剩 $0.10。禁用理由已从"厂商未上线"改成"账号余额不足"。
-  // 充值后在「大模型配置」把状态改回 active 即可，请求体已按新 schema 接对（见
-  // callAgnesVideo25：seconds 必须是字符串，mode 必填）。
-  "name": "Agnes AI Video 2.5（账号余额不足）",
+  "name": "Agnes AI Video 2.5 Flash",
   "provider": "Agnes AI",
   "baseUrl": "https://apihub.agnes-ai.com/v1/videos",
   "protocol": "OpenAI Videos 兼容协议",
   "type": "video",
-  "status": "disabled",
+  "model": "agnes-video-2.5-flash",
+  "model_slug": "agnes-video-2.5-flash",
+  "status": "active",
   "apiKey": AGNES_API_KEY
 },
 {
@@ -13347,6 +13345,9 @@ async function confirmImportSelectedModels() {
   for (var j = 0; j < selected.length; j++) {
     var sm = selected[j];
     var slug = sm.id;
+    if (slug.startsWith('agnes/') && (baseUrl.includes('agnes-ai.com') || provider.toLowerCase().includes('agnes'))) {
+      slug = slug.replace(/^agnes\//i, '');
+    }
     var type = sm.type || 'text';
 
     var pClean = provider.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'model';

@@ -129,8 +129,7 @@ export function initDb(db: Database.Database) {
     VALUES (?, ?, ?, ?)
   `);
   for (const [k, item] of Object.entries(DEFAULT_SYSTEM_SETTINGS)) {
-    const val = (process.env[k] && process.env[k]!.trim()) ? process.env[k]!.trim() : item.value;
-    insertSetting.run(k, val, item.description, nowStr);
+    insertSetting.run(k, item.value, item.description, nowStr);
   }
 
   try {
@@ -196,27 +195,27 @@ export function seedUserDefaultModels(db: Database.Database, userId: number) {
 
 export const DEFAULT_SYSTEM_SETTINGS: Record<string, { value: string; description: string }> = {
   AGNES_API_KEY: {
-    value: "sk-cKvJ3U4F9p8u7y6t5r4e3w2q1z0x9c8v7b6n5m4a3s2d1f0VjnR",
-    description: "Agnes AI API 密钥 (视频与图像生成主力)",
+    value: "",
+    description: "Agnes AI API 密钥 (视频与图像生成)",
   },
   ARK_API_KEY: {
-    value: "ark-02eb4b7bb9b1bfa69352934f82635ccc0",
+    value: "",
     description: "火山方舟 Coding Plan API 密钥",
   },
   ARK_PLAN_API_KEY: {
-    value: "ark-672ce346c1092eec029bfb4b5741b1d1",
+    value: "",
     description: "火山方舟 Agent Plan (文本与视觉理解) API 密钥",
   },
   HY_API_KEY: {
-    value: "sk-nltiO1eQ5Wq4s1eP06V1N7rK09a0q1B1O3t0v8O4G7J1R0Pq",
+    value: "",
     description: "腾讯混元大模型 API 密钥",
   },
   MM_API_KEY: {
-    value: "sk-cp-f69daeaae1ad47a59c7d41334f5904c0-0b66c4c818817293-6c701d81123512b9c7b94998967926e84d412e4f0d3674b8344e451fbff70cf085b3b44b80693a1f945763569766TZrE",
+    value: "",
     description: "MiniMax 海螺 AI API 密钥",
   },
   SEEDANCE_MINI_API_KEY: {
-    value: "sk-agg-608b47e85c13b73eb238bcf5cb82bc0e3860bb4a652bc5a0e0bb662b661fc1be",
+    value: "",
     description: "Seedance 2 Mini 聚合 API 密钥",
   },
   GS_ADMIN_USER: {

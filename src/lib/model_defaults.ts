@@ -114,13 +114,13 @@ export const DEFAULT_MODELS = [
   },
   {
     model_id: "agnes-video-25",
-    name: "Agnes AI Video 2.5（需 Token Plan 付费计划）",
+    name: "Agnes AI Video 2.5 Flash",
     provider: "Agnes AI",
     base_url: "https://apihub.agnes-ai.com/v1/videos",
     protocol: "OpenAI Videos 兼容协议",
     type: "video",
-    model_slug: "agnes-video-2.5",
-    status: "disabled",
+    model_slug: "agnes-video-2.5-flash",
+    status: "active",
     api_key: "",
   },
   {

@@ -124,7 +124,7 @@ export const PROXY_ROUTES: Record<string, ProxyRouteConfig> = {
     method: "POST",
     authType: "bearer",
     getAuthKey: () => getSystemSetting("AGNES_API_KEY"),
-    injectBody: { model: "agnes-video-2.5" },
+    injectBody: { model: "agnes-video-2.5-flash", mode: "ti2vid" },
   },
   "/api/agnes_video25_query": {
     url: "https://apihub.agnes-ai.com/v1/videos",
@@ -166,6 +166,7 @@ export const PROXY_ROUTES: Record<string, ProxyRouteConfig> = {
     method: "POST",
     authType: "bearer",
     getAuthKey: () => getSystemSetting("ARK_API_KEY"),
+    injectBody: { model: "doubao-seedream-4-0-250828" },
   },
 };
 
@@ -196,9 +197,9 @@ export async function forwardProxyRequest(
 
   if (config.authType !== "none" && !authKey) {
     return new Response(
-      JSON.stringify({ error: `服务端未配置 ${routePath} 对应的 API 密钥，请检查 .env 文件` }),
+      JSON.stringify({ error: `尚未配置该接口对应的 API 密钥。请在「大模型配置」中输入您的 API Key 或一键导入服务商配置。` }),
       {
-        status: 500,
+        status: 400,
         headers: { "Content-Type": "application/json" },
       }
     );

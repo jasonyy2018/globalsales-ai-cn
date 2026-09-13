@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, setSystemSetting } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
 import { DEFAULT_MODELS, BUILTIN_MODEL_IDS } from "@/lib/model_defaults";
 import type { AIModel } from "@/types";
@@ -187,7 +187,7 @@ export async function POST(request: Request) {
         const id = String(m.id || m.model_id || "");
         if (!id) continue;
         const isBuiltin = BUILTIN_MODEL_IDS.has(id);
-        const apiKeyToStore = isBuiltin ? "" : (m.apiKey || m.api_key || "");
+        const apiKeyToStore = String(m.apiKey || m.api_key || "");
         const baseUrlToStore = String(m.baseUrl || m.endpoint || "");
         const protocolToStore = String(m.protocol || "OpenAI 兼容协议");
         const modelSlugToStore = String(m.model || m.model_slug || "");
@@ -195,6 +195,24 @@ export async function POST(request: Request) {
         const statusToStore = String(m.status || "active");
         const nameToStore = String(m.name || id);
         const providerToStore = String(m.provider || "自定义");
+
+        // 当用户显式导入或添加了密钥时，同步存入系统级配置表供代理层共享
+        if (apiKeyToStore.trim()) {
+          const lowerId = id.toLowerCase();
+          const lowerUrl = baseUrlToStore.toLowerCase();
+          if (lowerId.includes("agnes") || lowerUrl.includes("agnes-ai.com")) {
+            setSystemSetting("AGNES_API_KEY", apiKeyToStore.trim());
+          } else if (lowerId.includes("ark") || lowerUrl.includes("volces.com")) {
+            if (lowerId.includes("plan")) setSystemSetting("ARK_PLAN_API_KEY", apiKeyToStore.trim());
+            else setSystemSetting("ARK_API_KEY", apiKeyToStore.trim());
+          } else if (lowerId.includes("minimax") || lowerUrl.includes("minimaxi.com")) {
+            setSystemSetting("MM_API_KEY", apiKeyToStore.trim());
+          } else if (lowerId.includes("hunyuan") || lowerUrl.includes("tencentmaas.com")) {
+            setSystemSetting("HY_API_KEY", apiKeyToStore.trim());
+          } else if (lowerId.includes("seedance") || lowerUrl.includes("togomol.com")) {
+            setSystemSetting("SEEDANCE_MINI_API_KEY", apiKeyToStore.trim());
+          }
+        }
 
         insertStmt.run(
           user.id,
