@@ -200,17 +200,18 @@ export async function POST(request: Request) {
         if (apiKeyToStore.trim()) {
           const lowerId = id.toLowerCase();
           const lowerUrl = baseUrlToStore.toLowerCase();
-          if (lowerId.includes("agnes") || lowerUrl.includes("agnes-ai.com")) {
-            setSystemSetting("AGNES_API_KEY", apiKeyToStore.trim());
+          const keyTrimmed = apiKeyToStore.trim();
+          if (lowerUrl.includes("aaapi.togomol.com") || keyTrimmed.startsWith("sk-aggr-") || lowerId.includes("seedance")) {
+            setSystemSetting("SEEDANCE_MINI_API_KEY", keyTrimmed);
+          } else if (lowerUrl.includes("agnes-ai.com") || (lowerId.includes("agnes") && !keyTrimmed.startsWith("sk-aggr-"))) {
+            setSystemSetting("AGNES_API_KEY", keyTrimmed);
           } else if (lowerId.includes("ark") || lowerUrl.includes("volces.com")) {
-            if (lowerId.includes("plan")) setSystemSetting("ARK_PLAN_API_KEY", apiKeyToStore.trim());
-            else setSystemSetting("ARK_API_KEY", apiKeyToStore.trim());
+            if (lowerId.includes("plan")) setSystemSetting("ARK_PLAN_API_KEY", keyTrimmed);
+            else setSystemSetting("ARK_API_KEY", keyTrimmed);
           } else if (lowerId.includes("minimax") || lowerUrl.includes("minimaxi.com")) {
-            setSystemSetting("MM_API_KEY", apiKeyToStore.trim());
+            setSystemSetting("MM_API_KEY", keyTrimmed);
           } else if (lowerId.includes("hunyuan") || lowerUrl.includes("tencentmaas.com")) {
-            setSystemSetting("HY_API_KEY", apiKeyToStore.trim());
-          } else if (lowerId.includes("seedance") || lowerUrl.includes("togomol.com")) {
-            setSystemSetting("SEEDANCE_MINI_API_KEY", apiKeyToStore.trim());
+            setSystemSetting("HY_API_KEY", keyTrimmed);
           }
         }
 

@@ -1610,16 +1610,17 @@ function getPickerRenderModelId(moduleKey) {
 async function _callCustomImageModel(cfg, prompt, n, refImageUrl) {
   n = Math.max(1, Math.min(6, parseInt(n, 10) || 1));
   var isProxy = (window.location.protocol !== 'file:');
-  var fetchSingleBatch = async function() {
-    var targetUrl = cfg.baseUrl || '';
-    if (targetUrl.includes('/chat/completions')) {
-      targetUrl = targetUrl.replace(/\/chat\/completions$/, '/images/generations');
-    }
-    var modelSlug = (cfg.model || 'gpt-image-1').trim();
-    if (targetUrl.includes('agnes-ai.com') || targetUrl.includes('agnes')) {
-      modelSlug = modelSlug.replace(/^agnes\//i, '');
-    }
-    var reqBody = { model: modelSlug, prompt: prompt, n: n, size: '1024x1024' };
+  var targetUrl = (cfg.baseUrl || '').trim();
+  if (targetUrl.includes('/chat/completions')) {
+    targetUrl = targetUrl.replace(/\/chat\/completions$/, '/images/generations');
+  }
+  var modelSlug = (cfg.model || cfg.model_slug || 'gpt-image-1').trim();
+  if (targetUrl.includes('agnes-ai.com') || targetUrl.includes('agnes')) {
+    modelSlug = modelSlug.replace(/^agnes\//i, '');
+  }
+
+  var fetchSingleImage = async function() {
+    var reqBody = { model: modelSlug, prompt: prompt, n: 1, size: '1024x1024' };
     if (refImageUrl) reqBody.image = refImageUrl;
     var url, headers, body;
     if (isProxy) {
@@ -1632,7 +1633,14 @@ async function _callCustomImageModel(cfg, prompt, n, refImageUrl) {
       body = reqBody;
     }
     var resp = await fetch(url, { method: 'POST', headers: headers, body: JSON.stringify(body) });
-    if (!resp.ok) { var e = new Error((cfg.name || cfg.id) + ' HTTP ' + resp.status); e.status = resp.status; e.isRateLimit = (resp.status === 429); throw e; }
+    if (!resp.ok) {
+      var errData = await resp.json().catch(function() { return {}; });
+      var errMsg = (errData.error && (errData.error.message || errData.error)) || errData.message || ('HTTP ' + resp.status);
+      var e = new Error((cfg.name || cfg.id) + '：' + errMsg);
+      e.status = resp.status;
+      e.isRateLimit = (resp.status === 429);
+      throw e;
+    }
     var data = await resp.json();
     var found = [];
     if (data.data && Array.isArray(data.data)) {
@@ -1645,18 +1653,27 @@ async function _callCustomImageModel(cfg, prompt, n, refImageUrl) {
     return found;
   };
 
-  var urls = await fetchSingleBatch();
-  // 若厂商接口忽略 n 参数只返回了 1 张，并发补齐剩余张数
-  if (urls.length < n) {
-    var remain = n - urls.length;
-    var extraPromises = [];
-    for (var j = 0; j < remain; j++) {
-      extraPromises.push(fetchSingleBatch().catch(function() { return []; }));
+  // 并发请求 n 张（绝大多数上游图片接口如 Agnes、SiliconFlow、DALL-E 3 强制 n 只能为 1，传 n>1 直接 400 失败）
+  var tasks = [];
+  var lastErr = null;
+  for (var i = 0; i < n; i++) {
+    tasks.push(fetchSingleImage().catch(function(err) {
+      console.warn('[_callCustomImageModel task failed]', err);
+      lastErr = err;
+      return [];
+    }));
+  }
+  var results = await Promise.all(tasks);
+  var urls = [];
+  for (var k = 0; k < results.length; k++) {
+    if (Array.isArray(results[k])) {
+      for (var m = 0; m < results[k].length; m++) {
+        if (results[k][m]) urls.push(results[k][m]);
+      }
     }
-    var extraResults = await Promise.all(extraPromises);
-    extraResults.forEach(function(batch) {
-      if (Array.isArray(batch)) urls.push.apply(urls, batch);
-    });
+  }
+  if (!urls.length && lastErr) {
+    throw lastErr;
   }
   return urls.slice(0, n);
 }
