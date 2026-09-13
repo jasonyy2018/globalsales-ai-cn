@@ -1353,11 +1353,11 @@ function getModelsByType(type) {
 // 根因是那条链路读的是全局 selectedTextModel（已删），而它只被图文生成页的 chip 改过，
 // 视频页无从影响。现在每个会调文本模型的页面都自己有一个可见的文本模型下拉。
 var DEFAULT_MODULE_MODELS = {
-  'hotspot': 'ark-plan-text', 'article': 'ark-plan-text', 'text-studio': 'ark-plan-text',
-  'comment': 'ark-plan-text', 'reply': 'ark-plan-text', 'sourcing': 'ark-plan-text',
-  'freeqa': 'ark-plan-text',
-  'video-script': 'ark-plan-text', 'vc-script': 'ark-plan-text', 'image-prompt': 'ark-plan-text',
-  'image': 'ark-image', 'video': 'agnes-video', 'video-create': 'agnes-video'
+  'hotspot': 'openai-agnes-agnes-3-0-flash', 'article': 'openai-agnes-agnes-3-0-flash', 'text-studio': 'openai-agnes-agnes-3-0-flash',
+  'comment': 'openai-agnes-agnes-3-0-flash', 'reply': 'openai-agnes-agnes-3-0-flash', 'sourcing': 'openai-agnes-agnes-3-0-flash',
+  'freeqa': 'openai-agnes-agnes-3-0-flash',
+  'video-script': 'openai-agnes-agnes-3-0-flash', 'vc-script': 'openai-agnes-agnes-3-0-flash', 'image-prompt': 'openai-agnes-agnes-3-0-flash',
+  'image': 'openai-agnes-agnes-image-2-5-flash', 'video': 'openai-agnes-agnes-video-2-5-flash', 'video-create': 'openai-agnes-agnes-video-2-5-flash'
 };
 var MODULE_MODEL_TYPE = {
   'hotspot': 'text', 'article': 'text', 'text-studio': 'text', 'comment': 'text', 'reply': 'text',
@@ -1715,11 +1715,11 @@ async function callModuleImage(moduleKey, prompt, n, refImageUrl) {
     }
   }
 
-  // 若首选模型未配置、或出图失败（如额度耗尽、超时、端点不可用），自动尝试可用内置主力模型降级兜底
+  // 若首选模型未配置、或出图失败（如额度耗尽、超时、端点不可用），仅在用户配置并启用的同类型可用模型中尝试降级
   if (!urls || !urls.length) {
-    var fallbacks = ['ark-image', 'agnes-image'];
-    for (var fi = 0; fi < fallbacks.length; fi++) {
-      var fbId = fallbacks[fi];
+    var availImages = (typeof getModelsByType === 'function' ? getModelsByType('image') : []) || [];
+    for (var fi = 0; fi < availImages.length; fi++) {
+      var fbId = availImages[fi].id;
       if (fbId === picked) continue;
       var fbFn = resolveImageModelCall(fbId);
       if (!fbFn) continue;
@@ -1727,7 +1727,7 @@ async function callModuleImage(moduleKey, prompt, n, refImageUrl) {
         console.log('[callModuleImage] 尝试备选模型降级: ' + fbId);
         urls = await fbFn(prompt, n, refImageUrl);
         if (urls && urls.length) {
-          showToast('ℹ️ 首选模型出图失败，已自动切换至 ' + modelNameById(fbId) + ' 成功出图');
+          showToast('ℹ️ 首选模型出图失败，已自动切换至 ' + (availImages[fi].name || fbId) + ' 成功出图');
           break;
         }
       } catch (fbErr) {
@@ -1791,6 +1791,7 @@ function resolveVideoModelCall(modelId) {
     return function(p, cb, d, o, i) {
       o = Object.assign({}, o, {
         model: cfg ? (cfg.model || cfg.model_slug || '') : 'bytedance/seedance-2-mini',
+        modelName: cfg ? (cfg.name || cfg.model || '') : '',
         apiKey: customApiKey || (o && o.apiKey) || SEEDANCE_MINI_API_KEY,
         baseUrl: cfg ? (cfg.endpoint || cfg.baseUrl || cfg.base_url || '') : ''
       });
@@ -2192,11 +2193,9 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
   throw new Error('Agnes Video 2.5 生成超时');
 }
 
-// 调用 Seedance 2 Mini / AggregateAPI 视频生成 API（AggregateAPI 异步轮询）
+// 调用 AggregateAPI / 中转站 视频生成 API（AggregateAPI 异步轮询）
 async function callSeedanceMiniVideo(prompt, onProgress, durationSec, opts, imageRef) {
   opts = opts || {};
-  var dur = durationSec || 5;
-  var aspectRatio = opts.aspectRatio || '16:9';
   var cfg = getModelRuntimeConfig('seedance-mini-video', {
     baseUrl: SEEDANCE_MINI_API_URL,
     apiKey: SEEDANCE_MINI_API_KEY,
@@ -2211,6 +2210,21 @@ async function callSeedanceMiniVideo(prompt, onProgress, durationSec, opts, imag
   // 正确值是 'bytedance/seedance-2-mini'。这里兜底修正用户/旧配置里写错的短名。
   if (/^(seedance[-_]?2?[-_]?mini)$/i.test(modelId)) modelId = 'bytedance/seedance-2-mini';
 
+  var modelDisplayName = (opts && (opts.modelName || opts.model)) || (cfg && cfg.name) || modelId;
+
+  // 时长限制自适应：
+  // 1) Agnes 系列模型（如 agnes/agnes-video-2.5-flash）：上游接口强制约束秒数必须在 [4, 12] 区间，超出直接 400
+  // 2) Seedance 2 Mini 模型：区间通常为 5–10 秒
+  var dur = parseInt(durationSec, 10) || 5;
+  if (/agnes/i.test(modelId)) {
+    if (dur < 4) dur = 4;
+    if (dur > 12) dur = 12;
+  } else if (/seedance/i.test(modelId)) {
+    if (dur < 5) dur = 5;
+    if (dur > 10) dur = 10;
+  }
+
+  var aspectRatio = opts.aspectRatio || '16:9';
   if (onProgress) onProgress(0, 60, '提交任务中');
   var body = {
     model: modelId,
@@ -2218,6 +2232,9 @@ async function callSeedanceMiniVideo(prompt, onProgress, durationSec, opts, imag
     aspect_ratio: aspectRatio,
     duration: dur + 's'
   };
+  if (/agnes/i.test(modelId)) {
+    body.seconds = String(dur);
+  }
   if (imageRef) body.image_url = imageRef;
   var taskHeaders = { 'Content-Type': 'application/json' };
   if (apiKey) taskHeaders['Authorization'] = 'Bearer ' + apiKey;
@@ -2230,16 +2247,20 @@ async function callSeedanceMiniVideo(prompt, onProgress, durationSec, opts, imag
   var createData = {};
   try { createData = createText ? JSON.parse(createText) : {}; } catch(e) { createData = { raw: createText }; }
   if (!createResp.ok || createData.error || createData.success === false) {
-    throw new Error('Seedance 2 Mini 任务创建失败：' + getTaskErrorFromResponse(createData));
+    var rawErr = getTaskErrorFromResponse(createData);
+    if (/queue.*full/i.test(rawErr)) {
+      rawErr = '厂商服务队列繁忙（video queue full），请稍等1-2分钟后重试';
+    }
+    throw new Error('任务创建失败：' + rawErr);
   }
   var taskId = getTaskIdFromResponse(createData);
   var directUrl = findFirstVideoUrl(createData);
   if (directUrl) return directUrl;
-  if (!taskId) throw new Error('Seedance 2 Mini API 未返回 taskId，原始响应：' + JSON.stringify(createData).slice(0, 500));
-  // 创建响应里会带回真正的 providerSlug（如 'kie-oai'），优先用它，避免写死的 slug 对不上
+  if (!taskId) throw new Error('接口未返回 taskId，原始响应：' + JSON.stringify(createData).slice(0, 500));
+  // 创建响应里会带回真正的 providerSlug（如 'kie-oai' 或 'agnes'），优先用它
   if (createData.providerSlug) providerSlug = createData.providerSlug;
 
-  // 实测 Seedance 生成一条 5s 视频约需 195s，60 次 ×5s = 300s 太紧，放宽到 90 次（7.5 分钟）
+  // 实测视频生成一条通常需 1-3 分钟，轮询 90 次（约 7.5 分钟）
   var maxRetries = 90;
   for (var i = 0; i < maxRetries; i++) {
     await new Promise(function(r) { setTimeout(r, 5000); });
@@ -2252,16 +2273,16 @@ async function callSeedanceMiniVideo(prompt, onProgress, durationSec, opts, imag
     var queryData = {};
     try { queryData = queryText ? JSON.parse(queryText) : {}; } catch(e) { queryData = { raw: queryText }; }
     if (!queryResp.ok || queryData.error) {
-      throw new Error('Seedance 2 Mini 状态查询失败：' + getTaskErrorFromResponse(queryData));
+      throw new Error('状态查询失败：' + getTaskErrorFromResponse(queryData));
     }
     var state = getTaskStateFromResponse(queryData);
     var videoUrl = findFirstVideoUrl(queryData);
     if (onProgress) onProgress(i + 1, maxRetries, state + (videoUrl ? '，已获取视频地址' : ''));
     if (videoUrl) return videoUrl;
-    if (state === 'completed') throw new Error('Seedance 2 Mini 任务已完成，但响应中未找到视频地址：' + JSON.stringify(queryData).slice(0, 500));
-    if (state === 'failed') throw new Error('Seedance 2 Mini 视频生成失败：' + getTaskErrorFromResponse(queryData));
+    if (state === 'completed') throw new Error('任务已完成，但响应中未找到视频地址：' + JSON.stringify(queryData).slice(0, 500));
+    if (state === 'failed') throw new Error('视频生成失败：' + getTaskErrorFromResponse(queryData));
   }
-  throw new Error('Seedance 2 Mini 视频生成超时（超过7分钟），taskId=' + taskId);
+  throw new Error('视频生成超时（超过7分钟），taskId=' + taskId);
 }
 
 async function callHunyuanVideo(prompt, onProgress, durationSec, opts, imageRef) {
@@ -5284,7 +5305,27 @@ function getTaskErrorFromResponse(data) {
   if (!data) return '未知错误';
   var err = data.error || data.message || data.msg || (data.data && (data.data.error || data.data.message || data.data.msg));
   if (!err) return '未知错误';
-  return typeof err === 'string' ? err : (err.message || JSON.stringify(err));
+  var str = typeof err === 'string' ? err : (err.message || JSON.stringify(err));
+
+  if (/rate limit|free users|Token Plan/i.test(str)) {
+    return '上游免费并发/频控超限（429 Rate Limit），请稍候重试或升级中转站额度套餐';
+  }
+  if (/queue.*full/i.test(str)) {
+    return '上游服务商任务队列繁忙（video queue full），请稍等1-2分钟后重试';
+  }
+
+  // 尝试提取嵌套在错误信息中的 JSON 详情
+  if (str.indexOf('{') !== -1 && str.indexOf('}') !== -1) {
+    try {
+      var match = str.match(/\{[\s\S]*\}/);
+      if (match) {
+        var parsed = JSON.parse(match[0]);
+        if (parsed.error && parsed.error.message) return parsed.error.message;
+        if (parsed.message) return parsed.message;
+      }
+    } catch(e) {}
+  }
+  return str;
 }
 
 async function generateImages() {
@@ -7434,9 +7475,9 @@ function safeUrl(url) {
 // 那正是浏览器的默认破图标）。这里替换成一个写明原因的占位块，问题可见。
 // 先置空 onerror 再替换，避免任何情况下递归触发。
 var IMG_FALLBACK_ONERROR = "this.onerror=null;var d=document.createElement('div');"
-  + "d.setAttribute('style','padding:24px 12px;border:1px dashed var(--border);border-radius:10px;"
+  + "d.setAttribute('style','padding:20px 12px;border:1px dashed var(--border);border-radius:10px;"
   + "background:var(--bg-primary);color:var(--text-secondary);font-size:13px;text-align:center;line-height:1.6;');"
-  + "d.textContent='\\u26a0\\ufe0f 配图加载失败（图片地址已过期或网络不可达）';"
+  + "d.innerHTML='<div>\\u26a0\\ufe0f 配图加载失败（原图链接已过期或网络不可达）</div><button class=\"btn btn-outline\" style=\"margin-top:8px;padding:4px 12px;font-size:12px;cursor:pointer;\" onclick=\"retryArticleImages(this)\">\\uD83D\\uDD01 重新生成本篇配图</button>';"
   + "if(this.parentNode)this.parentNode.replaceChild(d,this);";
 
 // 排序：完全匹配标题 > 部分匹配标题 > 匹配摘要 > 其他
@@ -9109,7 +9150,14 @@ async function insertArticleImages() {
       try {
         // callModuleImage 而非硬编码 callAgnesImage：尊重用户选的图片模型 + 自动降级
         var one = await callModuleImage('image', imgPrompts[pi], 1);
-        if (one && one.length) imageUrls.push(one[0]);
+        if (one && one.length) {
+          var finalUrl = one[0];
+          try {
+            var localSaved = await persistMediaUrl(finalUrl, 'image', { title: topic, model: 'ai-image' });
+            if (localSaved && localSaved.url) finalUrl = localSaved.url;
+          } catch(pe) {}
+          imageUrls.push(finalUrl);
+        }
       } catch (imgErr) {
         console.warn('[Article] 第 ' + (pi + 1) + ' 张配图失败，继续:', imgErr);
       }
@@ -9287,7 +9335,12 @@ async function generateArticle() {
         // 原来硬编码 callAgnesImage，用户换模型没有任何作用。
         var oneImg = await callModuleImage('image', imgPrompts[pi], 1);
         if (oneImg && oneImg.length > 0) {
-          imageUrls.push(oneImg[0]);
+          var finalUrl = oneImg[0];
+          try {
+            var localSaved = await persistMediaUrl(finalUrl, 'image', { title: articleTitle, model: 'ai-image' });
+            if (localSaved && localSaved.url) finalUrl = localSaved.url;
+          } catch(pe) {}
+          imageUrls.push(finalUrl);
         }
       } catch (imgErr) {
         console.warn('第 ' + (pi + 1) + ' 张配图生成失败，继续下一张:', imgErr);
@@ -10258,7 +10311,7 @@ async function generateVideo() {
     document.getElementById('videoResult').style.display = 'block';
     document.getElementById('btnGenVideo').disabled = false;
     document.getElementById('btnGenVideo').innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5,3 19,12 5,21"/></svg> 重新生成视频';
-    showToast('✅ ' + modelLabel + ' 视频已生成！');
+    showToast('✅ ' + (genVideoModelName || '视频') + ' 已生成！');
 
     // 保存到自媒体资产：只有真实有效的视频 URL 才入库，失败或空地址不入库
     var savedVideoUrl = '';
