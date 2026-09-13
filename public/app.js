@@ -1755,7 +1755,7 @@ function resolveVideoModelCall(modelId) {
     return function(p, cb, d, o, i) {
       o = Object.assign({}, o, {
         model: customModelName || 'agnes-video-2.5-flash',
-        apiKey: customApiKey || AGNES_API_KEY
+        apiKey: customApiKey || (o && o.apiKey) || AGNES_API_KEY
       });
       return callAgnesVideo25(p, cb, d, o, i);
     };
@@ -1764,7 +1764,7 @@ function resolveVideoModelCall(modelId) {
     return function(p, cb, d, o, i) {
       o = Object.assign({}, o, {
         model: customModelName || 'agnes-video-v2.0',
-        apiKey: customApiKey || AGNES_API_KEY
+        apiKey: customApiKey || (o && o.apiKey) || AGNES_API_KEY
       });
       return callAgnesVideo(p, cb, d, o, i);
     };
@@ -1943,13 +1943,14 @@ async function callAgnesVideo(prompt, onProgress, durationSec, opts, imageRef) {
   //   - ti2vid（text-image to video）：接受 1 张 image，作为视频首帧/初始画面
   //   - multi_reference：需要至少 2 张图（+ 可选 background_image），用于风格迁移
   //   - keyframes：需要多张图指定关键帧
-  // 用户只传了一张图 → 走 ti2vid（不是 multi_reference，后者要求 ≥2 张）。
-  // 注意：ti2vid 模式下 image 字段名是 image（不是 image_url），与 V2.5 不同。
-  var mode = 'ti2vid';
+  var apiKey = (opts && opts.apiKey) || AGNES_API_KEY;
+  var modelName = (opts && opts.model) || 'agnes-video-v2.0';
+  modelName = String(modelName).replace(/^agnes\//, '');
+  var mode = modelName === 'agnes-video-2.5-flash' ? (imageRef ? 'i2v' : 't2v') : 'ti2vid';
 
   // 1. 提交视频生成任务
   var body = {
-    model: 'agnes-video-v2.0',
+    model: modelName,
     prompt: prompt,
     mode: mode,
     seconds: String(secs),
@@ -1965,7 +1966,7 @@ async function callAgnesVideo(prompt, onProgress, durationSec, opts, imageRef) {
   var maxSubmitTries = 3;
   for (var submitTry = 1; submitTry <= maxSubmitTries; submitTry++) {
     var submitHeaders = { 'Content-Type': 'application/json' };
-    if (AGNES_API_KEY) submitHeaders['Authorization'] = 'Bearer ' + AGNES_API_KEY;
+    if (apiKey) submitHeaders['Authorization'] = 'Bearer ' + apiKey;
     submitResp = await fetch(AGNES_VIDEO_SUBMIT_URL, {
       method: 'POST',
       headers: submitHeaders,
@@ -1987,14 +1988,14 @@ async function callAgnesVideo(prompt, onProgress, durationSec, opts, imageRef) {
   }
 
   if (!submitResp.ok) {
-    // 队列满和限流都是**暂时**的，别让用户以为是自己参数填错了去反复改设置。
     if (submitResp.status === 503) {
       throw new Error('Agnes AI 排队中（厂商队列或推理槽已满），稍等一两分钟重试即可 —— 不是参数问题。');
     }
-    if (submitResp.status === 429) {
-      throw new Error('Agnes AI 触发限流（视频每分钟 6 次），已自动等待重试，请稍候 30 秒再试。');
+    var errMsg = (submitData && submitData.error && submitData.error.message) || (submitData && submitData.message) || '';
+    if (submitResp.status === 429 || /rate limit|Token Plan/i.test(errMsg)) {
+      throw new Error('Agnes AI 触发免费用户频控限制（429: rate_limit_exceeded），请稍后再试或在「大模型配置」中配置您自己的 API Key。');
     }
-    throw new Error('Agnes AI 提交失败 HTTP ' + submitResp.status + '：' + JSON.stringify(submitData).slice(0, 300));
+    throw new Error('Agnes AI 提交失败 HTTP ' + submitResp.status + '：' + (errMsg || JSON.stringify(submitData).slice(0, 300)));
   }
   if (submitData.error) {
     throw new Error(submitData.error.message || JSON.stringify(submitData.error));
@@ -2008,7 +2009,7 @@ async function callAgnesVideo(prompt, onProgress, durationSec, opts, imageRef) {
   for (var i = 0; i < maxRetries; i++) {
     await new Promise(function(r) { setTimeout(r, 5000); }); // wait 5s
     var qHeaders = {};
-    if (AGNES_API_KEY) qHeaders['Authorization'] = 'Bearer ' + AGNES_API_KEY;
+    if (apiKey) qHeaders['Authorization'] = 'Bearer ' + apiKey;
     var queryResp = await fetch(AGNES_VIDEO_QUERY_URL + '/' + encodeURIComponent(taskId), {
       method: 'GET',
       headers: qHeaders
@@ -2025,9 +2026,6 @@ async function callAgnesVideo(prompt, onProgress, durationSec, opts, imageRef) {
     if (onProgress) onProgress(i + 1, maxRetries, status);
 
     if (status === 'completed' || status === 'succeeded') {
-      // 视频地址位置厂商换过：早前在 metadata.url，2026-08-24 端到端复测是**顶层 url**
-      //（metadata 整个为 null）。所以不写死路径，统一交给 findFirstVideoUrl 深度递归查找 ——
-      // 只查 data/output/url 三处的旧写法曾导致任务明明成功却抛 "returned no video url"。
       var videoUrl = findFirstVideoUrl(queryData);
       if (!videoUrl) throw new Error('Agnes AI 未返回视频地址，原始响应：' + JSON.stringify(queryData).slice(0, 500));
       return videoUrl;
@@ -2041,16 +2039,10 @@ async function callAgnesVideo(prompt, onProgress, durationSec, opts, imageRef) {
 
 // 调用 Agnes Video 2.5（异步任务，OpenAI Videos 兼容协议）
 // 文档：https://agnes-ai.com/zh-Hans/docs/agnes-video-v25
-// 与 V2.0 的关键差异（都是踩过的坑，别按 V2.0 的写法改回去）：
-//   · seconds 取代 duration，合法区间 4–12 秒（V2.0 是 5/10/15/30）
-//   · size 只接受 "720P" 这个档位字符串；写成 "1280x720" 会 400，
-//     具体分辨率靠 aspect_ratio 选（16:9→1280x720，9:16→720x1280 等）
-//   · mode 字段：实测 V2.5 **不认** mode 字段（返回 invalid mode），
-//     而 V2.0 需要 mode 枚举（ti2vid / multi_reference）。
-//     所以 V2.5 提交时**不要传 mode**。
-//   · n 只能是 1；width/height/fps/quality 等字段传了就 400
-//   · 参考图：V2.5 没有文档化的参考图模式（先试了 first_frame/last_frame 都拒收），
-//     最安全的做法是：有参考图时直接回落 V2.0（V2.0 的 ti2vid + image 已验证可用）
+// 与 V2.0 的关键差异：
+//   · seconds 取代 duration，合法区间 4–12 秒
+//   · size 只接受 "720P" 这个档位字符串
+//   · mode 字段：agnes-video-2.5-flash 纯文本使用 t2v，带图使用 i2v
 async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef) {
   opts = opts || {};
   // 4–12 秒硬夹。上游 UI 允许到 60 秒，直接透传必然 400。
@@ -2064,11 +2056,12 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
 
   var modelName = (opts && opts.model) || 'agnes-video-2.5-flash';
   modelName = String(modelName).replace(/^agnes\//, '');
+  var mode = modelName === 'agnes-video-2.5-flash' ? (imageRef ? 'i2v' : 't2v') : 'ti2vid';
 
   var payload = {
     model: modelName,
     prompt: prompt,
-    mode: 'ti2vid',
+    mode: mode,
     seconds: String(secs),
     size: '720P',
     aspect_ratio: ratio,
@@ -2092,8 +2085,9 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
     // 遇到限流或需要 Token Plan 付费计划时，自动平滑切换至可用的 Agnes Video V2.0
     if (submitResp.status === 429 || /rate limit|Token Plan/i.test(em)) {
       console.log('[callAgnesVideo25] V2.5 达到限制或需 Token Plan，自动回落至 Agnes Video V2.0');
-      showToast('ℹ️ Agnes 2.5 需付费计划，已自动切换至可用 Agnes Video V2.0');
-      return callAgnesVideo(prompt, onProgress, durationSec, opts, imageRef);
+      showToast('ℹ️ Agnes 2.5 触发频控，已自动尝试备选模型 Agnes Video V2.0');
+      var fallbackOpts = Object.assign({}, opts, { model: 'agnes-video-v2.0' });
+      return callAgnesVideo(prompt, onProgress, durationSec, fallbackOpts, imageRef);
     }
     // 兜底也提示一下 model_not_found —— 万一厂商又下线了，别让人以为是参数问题
     if (/no available channel|model_not_found/i.test(em)) {

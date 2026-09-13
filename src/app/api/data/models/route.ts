@@ -74,7 +74,7 @@ export async function GET() {
           db.prepare("UPDATE user_models SET base_url = ? WHERE id = ?").run(baseUrl, r.id);
         } catch {}
       }
-      const apiKey = isBuiltin ? "" : String(r.api_key || "");
+      const apiKey = String(r.api_key || "");
       const protocol = String(r.protocol || "OpenAI 兼容协议");
       const modelSlug = String(r.model_slug || "");
       return {

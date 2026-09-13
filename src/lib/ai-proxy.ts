@@ -124,7 +124,7 @@ export const PROXY_ROUTES: Record<string, ProxyRouteConfig> = {
     method: "POST",
     authType: "bearer",
     getAuthKey: () => getSystemSetting("AGNES_API_KEY"),
-    injectBody: { model: "agnes-video-2.5-flash", mode: "ti2vid" },
+    injectBody: { model: "agnes-video-2.5-flash" },
   },
   "/api/agnes_video25_query": {
     url: "https://apihub.agnes-ai.com/v1/videos",
@@ -184,15 +184,20 @@ export async function forwardProxyRequest(
     });
   }
 
-  let authKey = config.getAuthKey();
-  if (!authKey) {
-    const incomingAuth = request.headers.get("Authorization");
-    if (incomingAuth) {
-      const match = incomingAuth.match(/^Bearer\s+(.+)$/i);
-      if (match && match[1].trim()) {
-        authKey = match[1].trim();
-      }
+  // 1. 优先使用客户端请求头中传入的有效 Authorization / x-api-key（用户在前端自定义配置的密钥）
+  let authKey = "";
+  const incomingAuth = request.headers.get("Authorization") || request.headers.get("x-api-key");
+  if (incomingAuth) {
+    const match = incomingAuth.match(/^Bearer\s+(.+)$/i);
+    const candidate = (match ? match[1] : incomingAuth).trim();
+    if (candidate && candidate !== "undefined" && candidate !== "null" && candidate !== '""') {
+      authKey = candidate;
     }
+  }
+
+  // 2. 客户端未传入有效密钥时，回落到服务端数据库/环境变量托管的密钥
+  if (!authKey) {
+    authKey = config.getAuthKey() || "";
   }
 
   if (config.authType !== "none" && !authKey) {
