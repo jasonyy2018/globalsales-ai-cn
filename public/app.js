@@ -1770,7 +1770,16 @@ function resolveVideoModelCall(modelId) {
     };
   }
   if (VIDEO_MODEL_BUILTIN[modelId]) return VIDEO_MODEL_BUILTIN[modelId];
-  if (short === 'seedance-mini') return VIDEO_MODEL_BUILTIN['seedance-mini-video'];
+  if (short === 'seedance-mini') {
+    return function(p, cb, d, o, i) {
+      o = Object.assign({}, o, {
+        model: cfg ? (cfg.model || cfg.model_slug || '') : 'bytedance/seedance-2-mini',
+        apiKey: customApiKey || (o && o.apiKey) || SEEDANCE_MINI_API_KEY,
+        baseUrl: cfg ? (cfg.endpoint || cfg.baseUrl || cfg.base_url || '') : ''
+      });
+      return callSeedanceMiniVideo(p, cb, d, o, i);
+    };
+  }
   if (short === 'hunyuan') return VIDEO_MODEL_BUILTIN['hunyuan-video'];
   if (short === 'minimax') return VIDEO_MODEL_BUILTIN['minimax-video'];
   return null;
@@ -1790,15 +1799,26 @@ function _videoShortKey(modelId) {
     }
   } catch (e) {}
 
+  var endpoint = (cfg ? (cfg.endpoint || cfg.baseUrl || cfg.base_url || '') : '').toLowerCase();
+  var key = (cfg ? (cfg.apiKey || cfg.api_key || '') : '').trim();
   var checkStr = (modelId + ' ' + (cfg ? ((cfg.model || '') + ' ' + (cfg.model_slug || '') + ' ' + (cfg.name || '') + ' ' + (cfg.endpoint || '') + ' ' + (cfg.provider || '')) : '')).toLowerCase();
 
+  // 1. 优先判断 AggregateAPI (aaapi.togomol.com) 中转站托管的视频模型：
+  // 任何包含 aaapi.togomol.com、密钥以 sk-aggr- 开头、或包含 seedance 的视频模型，统一走 AggregateAPI 异步任务通道
+  if (endpoint.indexOf('aaapi.togomol.com') !== -1 || key.indexOf('sk-aggr-') === 0 || checkStr.indexOf('seedance') !== -1) {
+    return 'seedance-mini';
+  }
+
+  // 2. 腾讯混元、MiniMax
+  if (checkStr.indexOf('hunyuan') !== -1) return 'hunyuan';
+  if (checkStr.indexOf('minimax') !== -1 || checkStr.indexOf('hailuo') !== -1) return 'minimax';
+
+  // 3. Agnes AI 官方端点或协议兼容模型
   if (checkStr.indexOf('2.5') !== -1 || checkStr.indexOf('25') !== -1 || checkStr.indexOf('flash') !== -1) {
     if (checkStr.indexOf('agnes') !== -1) return 'agnes25';
   }
   if (checkStr.indexOf('agnes') !== -1) return 'agnes';
-  if (checkStr.indexOf('seedance') !== -1) return 'seedance-mini';
-  if (checkStr.indexOf('hunyuan') !== -1) return 'hunyuan';
-  if (checkStr.indexOf('minimax') !== -1 || checkStr.indexOf('hailuo') !== -1) return 'minimax';
+
   return null;
 }
 function syncVideoModelFromPicker(moduleKey) {
@@ -1946,11 +1966,12 @@ async function callAgnesVideo(prompt, onProgress, durationSec, opts, imageRef) {
   var apiKey = (opts && opts.apiKey) || AGNES_API_KEY;
   var modelName = (opts && opts.model) || 'agnes-video-v2.0';
   modelName = String(modelName).replace(/^agnes\//, '');
-  var mode = modelName === 'agnes-video-2.5-flash' ? (imageRef ? 'i2v' : 't2v') : 'ti2vid';
+  var isV25 = /2\.5|flash/i.test(modelName);
+  var mode = isV25 ? (imageRef ? 'reference' : 'text') : 'ti2vid';
 
   // 1. 提交视频生成任务
   var body = {
-    model: modelName,
+    model: isV25 ? (modelName.indexOf('flash') !== -1 ? modelName : 'agnes-video-2.5-flash') : modelName,
     prompt: prompt,
     mode: mode,
     seconds: String(secs),
@@ -1958,7 +1979,13 @@ async function callAgnesVideo(prompt, onProgress, durationSec, opts, imageRef) {
     aspect_ratio: ratio,
     n: 1
   };
-  if (imageRef) body.image = imageRef;
+  if (imageRef) {
+    if (isV25) {
+      body.images = Array.isArray(imageRef) ? imageRef : [imageRef];
+    } else {
+      body.image = imageRef;
+    }
+  }
 
   // 1. 提交视频生成任务（对单分钟 6 次频控进行自动退避重试）
   var submitResp = null;
@@ -2056,7 +2083,11 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
 
   var modelName = (opts && opts.model) || 'agnes-video-2.5-flash';
   modelName = String(modelName).replace(/^agnes\//, '');
-  var mode = modelName === 'agnes-video-2.5-flash' ? (imageRef ? 'i2v' : 't2v') : 'ti2vid';
+  if (/2\.5/i.test(modelName) && !/flash/i.test(modelName)) {
+    modelName = 'agnes-video-2.5-flash';
+  }
+  var isV25 = /2\.5|flash/i.test(modelName);
+  var mode = isV25 ? (imageRef ? 'reference' : 'text') : 'ti2vid';
 
   var payload = {
     model: modelName,
@@ -2068,7 +2099,11 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
     n: 1
   };
   if (imageRef) {
-    payload.image = imageRef;
+    if (isV25) {
+      payload.images = Array.isArray(imageRef) ? imageRef : [imageRef];
+    } else {
+      payload.image = imageRef;
+    }
   }
 
   var apiKey = (opts && opts.apiKey) || AGNES_API_KEY;
@@ -2088,6 +2123,13 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
       showToast('ℹ️ Agnes 2.5 触发频控，已自动尝试备选模型 Agnes Video V2.0');
       var fallbackOpts = Object.assign({}, opts, { model: 'agnes-video-v2.0' });
       return callAgnesVideo(prompt, onProgress, durationSec, fallbackOpts, imageRef);
+    }
+    // 密钥鉴权失败：提示用户核对密钥来源（官方 Key vs 中转站/OpenAI Key）
+    if (submitResp.status === 401 || /Invalid token/i.test(em)) {
+      throw new Error('Agnes Video 2.5 官方端点鉴权失败（HTTP 401：Invalid token）。\n' +
+        '原因：您当前配置的 API Key 无法通过 Agnes AI 官方鉴权。\n' +
+        '• 如果您的 Key 是中转站（如 AggregateAPI / Togomol 的 sk-aggr-... 密钥），请确保该模型在「大模型配置」里的 Base URL 包含 aaapi.togomol.com，系统将自动使用中转站异步通道；\n' +
+        '• 如果直连 Agnes AI 官方，请在「大模型配置」中输入有效的官方 Key（以 sk-cKv... 开头）。');
     }
     // 兜底也提示一下 model_not_found —— 万一厂商又下线了，别让人以为是参数问题
     if (/no available channel|model_not_found/i.test(em)) {
@@ -2133,20 +2175,21 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
   throw new Error('Agnes Video 2.5 生成超时');
 }
 
-// 调用 Seedance 2 Mini 视频生成 API（AggregateAPI 异步轮询）
+// 调用 Seedance 2 Mini / AggregateAPI 视频生成 API（AggregateAPI 异步轮询）
 async function callSeedanceMiniVideo(prompt, onProgress, durationSec, opts, imageRef) {
+  opts = opts || {};
   var dur = durationSec || 5;
-  var aspectRatio = '16:9';
+  var aspectRatio = opts.aspectRatio || '16:9';
   var cfg = getModelRuntimeConfig('seedance-mini-video', {
     baseUrl: SEEDANCE_MINI_API_URL,
     apiKey: SEEDANCE_MINI_API_KEY,
     providerSlug: SEEDANCE_MINI_PROVIDER_SLUG,
     model: SEEDANCE_MINI_MODEL
   });
-  var taskApiUrl = USE_PROXY ? '/api/seedance_mini' : normalizeSeedanceTaskUrl(cfg.baseUrl || SEEDANCE_MINI_API_URL);
-  var apiKey = cfg.apiKey || SEEDANCE_MINI_API_KEY;
-  var providerSlug = cfg.providerSlug || SEEDANCE_MINI_PROVIDER_SLUG;
-  var modelId = cfg.model || SEEDANCE_MINI_MODEL;
+  var taskApiUrl = USE_PROXY ? '/api/seedance_mini' : normalizeSeedanceTaskUrl((opts && opts.baseUrl) || cfg.baseUrl || SEEDANCE_MINI_API_URL);
+  var apiKey = (opts && opts.apiKey) || cfg.apiKey || SEEDANCE_MINI_API_KEY;
+  var providerSlug = (opts && opts.providerSlug) || cfg.providerSlug || SEEDANCE_MINI_PROVIDER_SLUG;
+  var modelId = (opts && opts.model) || cfg.model || SEEDANCE_MINI_MODEL;
   // AggregateAPI 的模型 id 必须带厂商前缀：'seedance-2-mini' 会返回 model_not_found，
   // 正确值是 'bytedance/seedance-2-mini'。这里兜底修正用户/旧配置里写错的短名。
   if (/^(seedance[-_]?2?[-_]?mini)$/i.test(modelId)) modelId = 'bytedance/seedance-2-mini';
