@@ -111,9 +111,27 @@ export function initDb(db: Database.Database) {
       updated_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS system_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      description TEXT,
+      updated_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_assets_user ON assets(user_id, kind);
     CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
   `);
+
+  // Seed default system settings if missing
+  const nowStr = new Date().toISOString();
+  const insertSetting = db.prepare(`
+    INSERT OR IGNORE INTO system_settings (key, value, description, updated_at)
+    VALUES (?, ?, ?, ?)
+  `);
+  for (const [k, item] of Object.entries(DEFAULT_SYSTEM_SETTINGS)) {
+    const val = (process.env[k] && process.env[k]!.trim()) ? process.env[k]!.trim() : item.value;
+    insertSetting.run(k, val, item.description, nowStr);
+  }
 
   try {
     db.exec(`
@@ -175,3 +193,94 @@ export function seedUserDefaultModels(db: Database.Database, userId: number) {
   });
   tx();
 }
+
+export const DEFAULT_SYSTEM_SETTINGS: Record<string, { value: string; description: string }> = {
+  AGNES_API_KEY: {
+    value: "sk-cKvJ3U4F9p8u7y6t5r4e3w2q1z0x9c8v7b6n5m4a3s2d1f0VjnR",
+    description: "Agnes AI API 密钥 (视频与图像生成主力)",
+  },
+  ARK_API_KEY: {
+    value: "ark-02eb4b7bb9b1bfa69352934f82635ccc0",
+    description: "火山方舟 Coding Plan API 密钥",
+  },
+  ARK_PLAN_API_KEY: {
+    value: "ark-672ce346c1092eec029bfb4b5741b1d1",
+    description: "火山方舟 Agent Plan (文本与视觉理解) API 密钥",
+  },
+  HY_API_KEY: {
+    value: "sk-nltiO1eQ5Wq4s1eP06V1N7rK09a0q1B1O3t0v8O4G7J1R0Pq",
+    description: "腾讯混元大模型 API 密钥",
+  },
+  MM_API_KEY: {
+    value: "sk-cp-f69daeaae1ad47a59c7d41334f5904c0-0b66c4c818817293-6c701d81123512b9c7b94998967926e84d412e4f0d3674b8344e451fbff70cf085b3b44b80693a1f945763569766TZrE",
+    description: "MiniMax 海螺 AI API 密钥",
+  },
+  SEEDANCE_MINI_API_KEY: {
+    value: "sk-agg-608b47e85c13b73eb238bcf5cb82bc0e3860bb4a652bc5a0e0bb662b661fc1be",
+    description: "Seedance 2 Mini 聚合 API 密钥",
+  },
+  GS_ADMIN_USER: {
+    value: "martinxie",
+    description: "系统管理员初始用户名",
+  },
+  GS_ADMIN_PASS: {
+    value: "sunny520",
+    description: "系统管理员初始密码",
+  },
+  GS_PORT: {
+    value: "8766",
+    description: "系统运行端口",
+  },
+};
+
+export function getSystemSetting(key: string, defaultValue = ""): string {
+  try {
+    const db = getDb();
+    const row = db.prepare("SELECT value FROM system_settings WHERE key = ?").get(key) as { value?: string } | undefined;
+    if (row && typeof row.value === "string" && row.value.trim() !== "") {
+      return row.value.trim();
+    }
+  } catch {
+    // ignore db read failure
+  }
+  if (process.env[key] && process.env[key]!.trim() !== "") {
+    return process.env[key]!.trim();
+  }
+  return DEFAULT_SYSTEM_SETTINGS[key]?.value || defaultValue;
+}
+
+export function setSystemSetting(key: string, value: string, description?: string): void {
+  const db = getDb();
+  const desc = description || DEFAULT_SYSTEM_SETTINGS[key]?.description || "";
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO system_settings (key, value, description, updated_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(key) DO UPDATE SET
+      value = excluded.value,
+      description = COALESCE(excluded.description, system_settings.description),
+      updated_at = excluded.updated_at
+  `).run(key, value, desc, now);
+  process.env[key] = value;
+}
+
+export function getAllSystemSettings(): Record<string, { value: string; description: string; updated_at: string }> {
+  const db = getDb();
+  const rows = db.prepare("SELECT key, value, description, updated_at FROM system_settings").all() as Array<{
+    key: string;
+    value: string;
+    description: string;
+    updated_at: string;
+  }>;
+  const result: Record<string, { value: string; description: string; updated_at: string }> = {};
+  for (const r of rows) {
+    result[r.key] = { value: r.value, description: r.description, updated_at: r.updated_at };
+  }
+  for (const [k, v] of Object.entries(DEFAULT_SYSTEM_SETTINGS)) {
+    if (!result[k]) {
+      result[k] = { value: v.value, description: v.description, updated_at: new Date().toISOString() };
+    }
+  }
+  return result;
+}
+

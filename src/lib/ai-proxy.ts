@@ -34,6 +34,8 @@ export function ensureEnvLoaded() {
 }
 ensureEnvLoaded();
 
+import { getSystemSetting } from "./db";
+
 export interface ProxyRouteConfig {
   url: string;
   method: "GET" | "POST";
@@ -50,26 +52,26 @@ export const PROXY_ROUTES: Record<string, ProxyRouteConfig> = {
     url: "https://api.minimaxi.com/anthropic/v1/messages",
     method: "POST",
     authType: "x-api-key",
-    getAuthKey: () => process.env.MM_API_KEY || "",
+    getAuthKey: () => getSystemSetting("MM_API_KEY"),
     extraHeaders: { "anthropic-version": "2023-06-01" },
   },
   "/api/image": {
     url: "https://api.minimaxi.com/v1/image_generation",
     method: "POST",
     authType: "bearer",
-    getAuthKey: () => process.env.MM_API_KEY || "",
+    getAuthKey: () => getSystemSetting("MM_API_KEY"),
   },
   "/api/video": {
     url: "https://api.minimaxi.com/v1/video_generation",
     method: "POST",
     authType: "bearer",
-    getAuthKey: () => process.env.MM_API_KEY || "",
+    getAuthKey: () => getSystemSetting("MM_API_KEY"),
   },
   "/api/video_query": {
     url: "https://api.minimaxi.com/v1/query/video_generation",
     method: "GET",
     authType: "bearer",
-    getAuthKey: () => process.env.MM_API_KEY || "",
+    getAuthKey: () => getSystemSetting("MM_API_KEY"),
   },
 
   // Tencent Hunyuan
@@ -77,21 +79,21 @@ export const PROXY_ROUTES: Record<string, ProxyRouteConfig> = {
     url: "https://tokenhub.tencentmaas.com/v1/api/image/generate",
     method: "POST",
     authType: "bearer",
-    getAuthKey: () => process.env.HY_API_KEY || "",
+    getAuthKey: () => getSystemSetting("HY_API_KEY"),
     injectBody: { model: "hy-image-lite", rsp_img_type: "url" },
   },
   "/api/hy_video_submit": {
     url: "https://tokenhub.tencentmaas.com/v1/api/video/submit",
     method: "POST",
     authType: "bearer",
-    getAuthKey: () => process.env.HY_API_KEY || "",
+    getAuthKey: () => getSystemSetting("HY_API_KEY"),
     injectBody: { model: "hy-video-1.5" },
   },
   "/api/hy_video_query": {
     url: "https://tokenhub.tencentmaas.com/v1/api/video/query",
     method: "POST",
     authType: "bearer",
-    getAuthKey: () => process.env.HY_API_KEY || "",
+    getAuthKey: () => getSystemSetting("HY_API_KEY"),
     injectBody: { model: "hy-video-1.5" },
   },
 
@@ -100,7 +102,7 @@ export const PROXY_ROUTES: Record<string, ProxyRouteConfig> = {
     url: "https://apihub.agnes-ai.com/v1/images/generations",
     method: "POST",
     authType: "bearer",
-    getAuthKey: () => process.env.AGNES_API_KEY || "",
+    getAuthKey: () => getSystemSetting("AGNES_API_KEY"),
     injectBody: { model: "agnes-image-2.1-flash" },
     removeParams: ["response_format"],
   },
@@ -108,27 +110,27 @@ export const PROXY_ROUTES: Record<string, ProxyRouteConfig> = {
     url: "https://apihub.agnes-ai.com/v1/videos",
     method: "POST",
     authType: "bearer",
-    getAuthKey: () => process.env.AGNES_API_KEY || "",
+    getAuthKey: () => getSystemSetting("AGNES_API_KEY"),
     injectBody: { model: "agnes-video-v2.0" },
   },
   "/api/agnes_video_query": {
     url: "https://apihub.agnes-ai.com/v1/videos",
     method: "GET",
     authType: "bearer",
-    getAuthKey: () => process.env.AGNES_API_KEY || "",
+    getAuthKey: () => getSystemSetting("AGNES_API_KEY"),
   },
   "/api/agnes_video25_submit": {
     url: "https://apihub.agnes-ai.com/v1/videos",
     method: "POST",
     authType: "bearer",
-    getAuthKey: () => process.env.AGNES_API_KEY || "",
+    getAuthKey: () => getSystemSetting("AGNES_API_KEY"),
     injectBody: { model: "agnes-video-2.5" },
   },
   "/api/agnes_video25_query": {
     url: "https://apihub.agnes-ai.com/v1/videos",
     method: "GET",
     authType: "bearer",
-    getAuthKey: () => process.env.AGNES_API_KEY || "",
+    getAuthKey: () => getSystemSetting("AGNES_API_KEY"),
   },
 
   // Seedance 2 Mini
@@ -136,14 +138,14 @@ export const PROXY_ROUTES: Record<string, ProxyRouteConfig> = {
     url: "https://aaapi.togomol.com/api/v1/tasks/create",
     method: "POST",
     authType: "bearer",
-    getAuthKey: () => process.env.SEEDANCE_MINI_API_KEY || "",
+    getAuthKey: () => getSystemSetting("SEEDANCE_MINI_API_KEY"),
     injectBody: { model: "bytedance/seedance-2-mini" },
   },
   "/api/seedance_mini/status": {
     url: "https://aaapi.togomol.com/api/v1/tasks/status",
     method: "GET",
     authType: "bearer",
-    getAuthKey: () => process.env.SEEDANCE_MINI_API_KEY || "",
+    getAuthKey: () => getSystemSetting("SEEDANCE_MINI_API_KEY"),
   },
 
   // Volcengine Ark
@@ -151,19 +153,19 @@ export const PROXY_ROUTES: Record<string, ProxyRouteConfig> = {
     url: "https://ark.cn-beijing.volces.com/api/coding/v3/chat/completions",
     method: "POST",
     authType: "bearer",
-    getAuthKey: () => process.env.ARK_API_KEY || "",
+    getAuthKey: () => getSystemSetting("ARK_API_KEY"),
   },
   "/api/ark_plan_text": {
     url: "https://ark.cn-beijing.volces.com/api/plan/v3/chat/completions",
     method: "POST",
     authType: "bearer",
-    getAuthKey: () => process.env.ARK_PLAN_API_KEY || "",
+    getAuthKey: () => getSystemSetting("ARK_PLAN_API_KEY"),
   },
   "/api/ark_image": {
     url: "https://ark.cn-beijing.volces.com/api/v3/images/generations",
     method: "POST",
     authType: "bearer",
-    getAuthKey: () => process.env.ARK_API_KEY || "",
+    getAuthKey: () => getSystemSetting("ARK_API_KEY"),
   },
 };
 
