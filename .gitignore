@@ -4,7 +4,10 @@
 !.env.example
 
 # ---- 用户数据：含用户名、PBKDF2 哈希、会话 token、生成的资产 ----
-data/
+# 只忽略项目根下的 data/（SQLite 数据库与用户文件），不要写成裸 "data/"，
+# 否则会连 src/app/api/data/（API 路由源码）一起误伤 —— 那个目录曾被静默
+# 排除出版本控制，导致服务端模型删除修复从未进过仓库/部署。
+/data/
 *.db
 *.db-journal
 *.db-wal

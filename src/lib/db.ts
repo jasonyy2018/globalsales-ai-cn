@@ -2,11 +2,8 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import { DATA_DIR, DB_PATH, USERS_DIR } from "./data_paths";
 import { DEFAULT_MODELS } from "./model_defaults";
-
-const DATA_DIR = path.join(process.cwd(), "data");
-const DB_PATH = path.join(DATA_DIR, "app.db");
-const USERS_DIR = path.join(DATA_DIR, "users");
 
 let _db: Database.Database | null = null;
 
