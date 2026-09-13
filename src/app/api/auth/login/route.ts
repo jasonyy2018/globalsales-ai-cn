@@ -23,32 +23,29 @@ export async function POST(request: Request) {
       WHERE username = ? COLLATE NOCASE
     `).get(normalizedUser) as (User & { pass_hash: string; salt: string }) | undefined;
 
-    // Fallback: auto-create admin if querying for admin and not found
-    if (!userRow && (normalizedUser.toLowerCase() === "admin" || normalizedUser.toLowerCase() === "martinxie")) {
-      const { hash, salt } = hashPassword("sunny520");
-      const info = db.prepare(`
-        INSERT INTO users (username, pass_hash, salt, role, created_at, prompts_seeded)
-        VALUES (?, ?, ?, 'admin', ?, 1)
-      `).run(normalizedUser, hash, salt, new Date().toISOString());
-      userRow = db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid) as any;
+    // 管理员账号不存在时：严格按 .env 的 GS_ADMIN_USER / GS_ADMIN_PASS 自动补建。
+    // 源码里不再写死任何真实密码（之前硬编码的默认值已泄露进 git 历史）。
+    // 未配置 GS_ADMIN_PASS 时不自动创建，直接提示去环境变量设置，避免落回已知密码。
+    if (!userRow) {
+      const envAdminUser = (process.env.GS_ADMIN_USER || "admin").trim().toLowerCase();
+      const envAdminPass = (process.env.GS_ADMIN_PASS || "").trim();
+      if (normalizedUser.toLowerCase() === envAdminUser && envAdminPass) {
+        const { hash, salt } = hashPassword(envAdminPass);
+        const info = db.prepare(`
+          INSERT INTO users (username, pass_hash, salt, role, created_at, prompts_seeded)
+          VALUES (?, ?, ?, 'admin', ?, 1)
+        `).run(normalizedUser, hash, salt, new Date().toISOString());
+        userRow = db.prepare("SELECT * FROM users WHERE id = ?").get(info.lastInsertRowid) as any;
+      }
     }
 
     if (!userRow) {
       return NextResponse.json({ error: "用户名或密码错误" }, { status: 401 });
     }
 
-    // Verify password with trimming and dev fallback for admin accounts
-    let isValid = verifyPassword(password, userRow.salt, userRow.pass_hash)
+    // 正常密码校验（先原始输入，再去首尾空白，兼容用户误粘空格）
+    const isValid = verifyPassword(password, userRow.salt, userRow.pass_hash)
       || verifyPassword(cleanPassword, userRow.salt, userRow.pass_hash);
-
-    if (!isValid && userRow.role === "admin") {
-      const allowedAdminPass = ["sunny520", "Sunny520", "123456", "admin", "admin123"];
-      if (allowedAdminPass.includes(cleanPassword)) {
-        const { hash: newHash, salt: newSalt } = hashPassword(cleanPassword);
-        db.prepare("UPDATE users SET pass_hash = ?, salt = ? WHERE id = ?").run(newHash, newSalt, userRow.id);
-        isValid = true;
-      }
-    }
 
     if (!isValid) {
       return NextResponse.json({ error: "用户名或密码错误" }, { status: 401 });

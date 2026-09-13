@@ -160,8 +160,22 @@ export function initDb(db: Database.Database) {
   // Seed default admin if table is empty
   const userCount = db.prepare("SELECT count(*) as count FROM users").get() as { count: number };
   if (userCount.count === 0) {
-    const adminUser = process.env.GS_ADMIN_USER || "martinxie";
-    const adminPass = process.env.GS_ADMIN_PASS || "sunny520";
+    // 首次建库：admin 账号只信任 .env / 环境变量。
+    // 源码里绝不写死真实密码 —— 之前硬编码的 GS_ADMIN_PASS 已被提交进 git 历史，
+    // 视为泄露。未配置时生成随机强密码并打印到启动日志（一次性），
+    // 让部署者必须显式设置，而不是静默落回一个可被源码检索到的默认值。
+    const adminUser = process.env.GS_ADMIN_USER || "admin";
+    let adminPass = process.env.GS_ADMIN_PASS;
+    if (!adminPass || !adminPass.trim()) {
+      adminPass = crypto.randomBytes(18).toString("base64url");
+      console.warn(
+        `[db] 首次建库未配置 GS_ADMIN_PASS，已生成一次性随机管理员密码：\n` +
+          `      用户名: ${adminUser}\n` +
+          `      临时密码: ${adminPass}\n` +
+          `      ⚠️ 请立即在 .env 或 systemd EnvironmentFile 里设置 GS_ADMIN_PASS，` +
+          `并尽快在「用户管理」里修改该密码。`
+      );
+    }
     const salt = crypto.randomBytes(16).toString("hex");
     const hash = crypto.pbkdf2Sync(adminPass, Buffer.from(salt, "utf-8"), 200000, 32, "sha256").toString("hex");
     const now = new Date().toISOString();
@@ -219,12 +233,12 @@ export const DEFAULT_SYSTEM_SETTINGS: Record<string, { value: string; descriptio
     description: "Seedance 2 Mini 聚合 API 密钥",
   },
   GS_ADMIN_USER: {
-    value: "martinxie",
-    description: "系统管理员初始用户名",
+    value: "admin",
+    description: "系统管理员初始用户名（仅首次建库且未设 GS_ADMIN_USER 时生效）",
   },
   GS_ADMIN_PASS: {
-    value: "sunny520",
-    description: "系统管理员初始密码",
+    value: "",
+    description: "系统管理员初始密码。请通过 .env / 环境变量提供，不要在源码里写死真实密码。",
   },
   GS_PORT: {
     value: "8766",

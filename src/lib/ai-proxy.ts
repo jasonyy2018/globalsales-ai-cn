@@ -1,7 +1,10 @@
 import fs from "fs";
 import path from "path";
 import { DATA_DIR } from "./data_paths";
+import { getSystemSetting } from "./db";
 
+// .env 加载改为惰性：不在 import 时读盘（副作用对 standalone 缓存不可控）。
+// forwardProxyRequest 每次调用前再调 ensureEnvLoaded()。
 export function ensureEnvLoaded() {
   if (process.env.AGNES_API_KEY && process.env.ARK_PLAN_API_KEY) return;
   const candidates = [
@@ -32,9 +35,6 @@ export function ensureEnvLoaded() {
     }
   }
 }
-ensureEnvLoaded();
-
-import { getSystemSetting } from "./db";
 
 export interface ProxyRouteConfig {
   url: string;

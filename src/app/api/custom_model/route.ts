@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { getSystemSetting } from "@/lib/db";
+import { assertPublicUrl } from "@/lib/scraper";
 
 export async function POST(request: Request) {
   try {
@@ -10,6 +11,20 @@ export async function POST(request: Request) {
 
     if (!targetUrl.startsWith("http://") && !targetUrl.startsWith("https://")) {
       return NextResponse.json({ success: false, error: "invalid url" }, { status: 400 });
+    }
+
+    // 防 SSRF：该端点会把用户提供的 URL 连同 Authorization 密钥透传给目标，
+    // 必须挡住内网 / 云元数据地址（127.0.0.1、10.x、169.254.169.254 等），
+    // 否则恶意用户可用它探测内网服务。allowLocal 放行 127.0.0.1/localhost，
+    // 供 Ollama 等本地模型使用（与 fetch_remote 同策略）。
+    const allowLocal = /(^https?:\/\/(localhost|127\.0\.0\.1):11434)/i.test(targetUrl);
+    if (!allowLocal) {
+      try {
+        await assertPublicUrl(targetUrl);
+      } catch (ssrfErr: unknown) {
+        const msg = ssrfErr instanceof Error ? ssrfErr.message : String(ssrfErr);
+        return NextResponse.json({ success: false, error: `URL 被拒绝：${msg}` }, { status: 400 });
+      }
     }
 
     const method = String(data.method || "POST").toUpperCase();

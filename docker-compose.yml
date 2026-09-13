@@ -17,6 +17,9 @@ services:
       - PORT=8766
       - HOSTNAME=0.0.0.0
       - GS_PORT=8766
+      # 显式指向挂载卷，确保容器内数据库读写落在持久化的 /app/data，
+      # 避免 standalone 的 chdir(__dirname) 导致会话/用户数据分裂
+      - GS_DATA_DIR=/app/data
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8766/api/auth/me || exit 0"]
       interval: 30s
