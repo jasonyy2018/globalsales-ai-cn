@@ -4545,12 +4545,11 @@ async function callAgnesVideo(prompt, onProgress, durationSec, opts, imageRef) {
   };
   if (imageRef) body.image = imageRef;
 
+  var submitHeaders = { 'Content-Type': 'application/json' };
+  if (AGNES_API_KEY) submitHeaders['Authorization'] = 'Bearer ' + AGNES_API_KEY;
   var submitResp = await fetch(AGNES_VIDEO_SUBMIT_URL, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + AGNES_API_KEY
-    },
+    headers: submitHeaders,
     body: JSON.stringify(body)
   });
   var submitData = await submitResp.json().catch(function() { return {}; });
@@ -4580,11 +4579,11 @@ async function callAgnesVideo(prompt, onProgress, durationSec, opts, imageRef) {
   var maxRetries = 60;
   for (var i = 0; i < maxRetries; i++) {
     await new Promise(function(r) { setTimeout(r, 5000); }); // wait 5s
+    var qHeaders = {};
+    if (AGNES_API_KEY) qHeaders['Authorization'] = 'Bearer ' + AGNES_API_KEY;
     var queryResp = await fetch(AGNES_VIDEO_QUERY_URL + '/' + encodeURIComponent(taskId), {
       method: 'GET',
-      headers: {
-        'Authorization': 'Bearer ' + AGNES_API_KEY
-      }
+      headers: qHeaders
     });
     // 429 不当失败：厂商对视频接口限流（实测 6 次/分钟），而这里 5 秒一轮 = 12 次/分钟，
     // 排队久了必然撞上。退避后重试，别把限流当成生成失败。
@@ -4651,9 +4650,11 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
     n: 1
   };
 
+  var submitHeaders25 = { 'Content-Type': 'application/json' };
+  if (AGNES_API_KEY) submitHeaders25['Authorization'] = 'Bearer ' + AGNES_API_KEY;
   var submitResp = await fetch(AGNES_V25_SUBMIT_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AGNES_API_KEY },
+    headers: submitHeaders25,
     body: JSON.stringify(payload)
   });
   var submitData = await submitResp.json().catch(function() { return {}; });
@@ -4683,9 +4684,11 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
   var maxRetries = 100;
   for (var i = 0; i < maxRetries; i++) {
     await new Promise(function(r) { setTimeout(r, 3000); });
+    var qHeaders25 = {};
+    if (AGNES_API_KEY) qHeaders25['Authorization'] = 'Bearer ' + AGNES_API_KEY;
     var queryResp = await fetch(AGNES_V25_QUERY_URL + '/' + encodeURIComponent(taskId), {
       method: 'GET',
-      headers: { 'Authorization': 'Bearer ' + AGNES_API_KEY }
+      headers: qHeaders25
     });
     // 429 不当失败：按文档退避后重试，别把限流当成生成失败
     if (queryResp.status === 429) {
@@ -4737,12 +4740,11 @@ async function callSeedanceMiniVideo(prompt, onProgress, durationSec, opts, imag
     duration: dur + 's'
   };
   if (imageRef) body.image_url = imageRef;
+  var taskHeaders = { 'Content-Type': 'application/json' };
+  if (apiKey) taskHeaders['Authorization'] = 'Bearer ' + apiKey;
   var createResp = await fetch(taskApiUrl + '/create', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + apiKey
-    },
+    headers: taskHeaders,
     body: JSON.stringify(body)
   });
   var createText = await createResp.text();
@@ -4762,8 +4764,10 @@ async function callSeedanceMiniVideo(prompt, onProgress, durationSec, opts, imag
   var maxRetries = 90;
   for (var i = 0; i < maxRetries; i++) {
     await new Promise(function(r) { setTimeout(r, 5000); });
+    var qHeaders = {};
+    if (apiKey) qHeaders['Authorization'] = 'Bearer ' + apiKey;
     var queryResp = await fetch(taskApiUrl + '/status?taskId=' + encodeURIComponent(taskId) + '&providerSlug=' + encodeURIComponent(providerSlug), {
-      headers: { 'Authorization': 'Bearer ' + apiKey }
+      headers: qHeaders
     });
     var queryText = await queryResp.text();
     var queryData = {};
@@ -7903,12 +7907,11 @@ async function callAgnesImage(prompt, num, refImageUrl) {
       console.log('🎨 使用参考图生成，权重:', bodyData.image_weight, '第', reqIndex + 1, '/', num, '张');
     }
     
+    var imgHeaders = { 'Content-Type': 'application/json' };
+    if (AGNES_API_KEY) imgHeaders['Authorization'] = 'Bearer ' + AGNES_API_KEY;
     var resp = await fetch(AGNES_IMAGE_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + AGNES_API_KEY
-      },
+      headers: imgHeaders,
       body: JSON.stringify(bodyData)
     });
     if (!resp.ok) {

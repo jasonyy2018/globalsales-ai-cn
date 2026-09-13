@@ -1921,12 +1921,11 @@ async function callAgnesVideo(prompt, onProgress, durationSec, opts, imageRef) {
   var submitData = null;
   var maxSubmitTries = 3;
   for (var submitTry = 1; submitTry <= maxSubmitTries; submitTry++) {
+    var submitHeaders = { 'Content-Type': 'application/json' };
+    if (AGNES_API_KEY) submitHeaders['Authorization'] = 'Bearer ' + AGNES_API_KEY;
     submitResp = await fetch(AGNES_VIDEO_SUBMIT_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + AGNES_API_KEY
-      },
+      headers: submitHeaders,
       body: JSON.stringify(body)
     });
     submitData = await submitResp.json().catch(function() { return {}; });
@@ -1965,11 +1964,11 @@ async function callAgnesVideo(prompt, onProgress, durationSec, opts, imageRef) {
   var maxRetries = 60;
   for (var i = 0; i < maxRetries; i++) {
     await new Promise(function(r) { setTimeout(r, 5000); }); // wait 5s
+    var qHeaders = {};
+    if (AGNES_API_KEY) qHeaders['Authorization'] = 'Bearer ' + AGNES_API_KEY;
     var queryResp = await fetch(AGNES_VIDEO_QUERY_URL + '/' + encodeURIComponent(taskId), {
       method: 'GET',
-      headers: {
-        'Authorization': 'Bearer ' + AGNES_API_KEY
-      }
+      headers: qHeaders
     });
     // 429 不当失败：厂商对视频接口限流（实测 6 次/分钟），而这里 5 秒一轮 = 12 次/分钟，
     // 排队久了必然撞上。退避后重试，别把限流当成生成失败。
@@ -2036,9 +2035,11 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
     n: 1
   };
 
+  var submitHeaders25 = { 'Content-Type': 'application/json' };
+  if (AGNES_API_KEY) submitHeaders25['Authorization'] = 'Bearer ' + AGNES_API_KEY;
   var submitResp = await fetch(AGNES_V25_SUBMIT_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AGNES_API_KEY },
+    headers: submitHeaders25,
     body: JSON.stringify(payload)
   });
   var submitData = await submitResp.json().catch(function() { return {}; });
@@ -2054,7 +2055,7 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
     }
     // 兜底也提示一下 model_not_found —— 万一厂商又下线了，别让人以为是参数问题
     if (/no available channel|model_not_found/i.test(em)) {
-      throw new Error('Agnes Video 2.5 厂商侧当前不可用（' + em + '）。可先用 Agnes Video V2.0 或 Seedance 2 Mini。');
+      throw new Error('Agnes Video 2.5 厂商侧当前不可用（' + em + '）。可先用 Agnes Video V2.0。');
     }
     throw new Error('Agnes Video 2.5 提交失败 HTTP ' + submitResp.status + '：' + JSON.stringify(submitData).slice(0, 300));
   }
@@ -2066,9 +2067,11 @@ async function callAgnesVideo25(prompt, onProgress, durationSec, opts, imageRef)
   var maxRetries = 100;
   for (var i = 0; i < maxRetries; i++) {
     await new Promise(function(r) { setTimeout(r, 3000); });
+    var qHeaders25 = {};
+    if (AGNES_API_KEY) qHeaders25['Authorization'] = 'Bearer ' + AGNES_API_KEY;
     var queryResp = await fetch(AGNES_V25_QUERY_URL + '/' + encodeURIComponent(taskId), {
       method: 'GET',
-      headers: { 'Authorization': 'Bearer ' + AGNES_API_KEY }
+      headers: qHeaders25
     });
     // 429 不当失败：按文档退避后重试，别把限流当成生成失败
     if (queryResp.status === 429) {
@@ -2120,12 +2123,11 @@ async function callSeedanceMiniVideo(prompt, onProgress, durationSec, opts, imag
     duration: dur + 's'
   };
   if (imageRef) body.image_url = imageRef;
+  var taskHeaders = { 'Content-Type': 'application/json' };
+  if (apiKey) taskHeaders['Authorization'] = 'Bearer ' + apiKey;
   var createResp = await fetch(taskApiUrl + '/create', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + apiKey
-    },
+    headers: taskHeaders,
     body: JSON.stringify(body)
   });
   var createText = await createResp.text();
@@ -2145,8 +2147,10 @@ async function callSeedanceMiniVideo(prompt, onProgress, durationSec, opts, imag
   var maxRetries = 90;
   for (var i = 0; i < maxRetries; i++) {
     await new Promise(function(r) { setTimeout(r, 5000); });
+    var qHeaders = {};
+    if (apiKey) qHeaders['Authorization'] = 'Bearer ' + apiKey;
     var queryResp = await fetch(taskApiUrl + '/status?taskId=' + encodeURIComponent(taskId) + '&providerSlug=' + encodeURIComponent(providerSlug), {
-      headers: { 'Authorization': 'Bearer ' + apiKey }
+      headers: qHeaders
     });
     var queryText = await queryResp.text();
     var queryData = {};
@@ -5283,12 +5287,11 @@ async function callAgnesImage(prompt, num, refImageUrl) {
       bodyData.image = refImageUrl;
       bodyData.image_weight = 0.7;
     }
+    var imgHeaders = { 'Content-Type': 'application/json' };
+    if (AGNES_API_KEY) imgHeaders['Authorization'] = 'Bearer ' + AGNES_API_KEY;
     var resp = await fetch(AGNES_IMAGE_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + AGNES_API_KEY
-      },
+      headers: imgHeaders,
       body: JSON.stringify(bodyData)
     });
     if (!resp.ok) {
@@ -10127,37 +10130,9 @@ async function generateVideo() {
     if (selectedVideoModel === 'hunyuan') {
       videoUrl = await callHunyuanVideo(videoPrompt, progressCb, durationSec, null, null);
     } else if (selectedVideoModel === 'agnes') {
-      try {
-        videoUrl = await callAgnesVideo(videoPrompt, progressCb, durationSec, null, null);
-      } catch (e) {
-        console.warn('Agnes video failed, attempting Seedance Mini fallback:', e);
-        if (progressCb) progressCb(1, 1, 'Agnes 提示：' + ((e && e.message) || '暂时繁忙') + '，正在尝试 Seedance 2 Mini 兜底...');
-        try {
-          videoUrl = await callSeedanceMiniVideo(videoPrompt, progressCb, durationSec, null, null);
-        } catch (sErr) {
-          var sMsg = (sErr && sErr.message) || '';
-          if (sMsg.indexOf('Insufficient balance') !== -1 || sMsg.indexOf('额度不足') !== -1) {
-            throw new Error('Agnes 视频生成提示：' + ((e && e.message) || '触发频控') + '（备用 Seedance 账号额度耗尽，请稍等 30 秒直接重试 Agnes AI 即可）');
-          }
-          throw new Error('Agnes 视频生成失败：' + ((e && e.message) || '未知') + '；备用 Seedance 亦失败：' + sMsg);
-        }
-      }
+      videoUrl = await callAgnesVideo(videoPrompt, progressCb, durationSec, null, null);
     } else if (selectedVideoModel === 'agnes25') {
-      try {
-        videoUrl = await callAgnesVideo25(videoPrompt, progressCb, durationSec, null, null);
-      } catch (e) {
-        console.warn('Agnes 2.5 video failed, attempting Seedance Mini fallback:', e);
-        if (progressCb) progressCb(1, 1, 'Agnes 2.5 提示：' + ((e && e.message) || '暂时繁忙') + '，正在尝试 Seedance 2 Mini 兜底...');
-        try {
-          videoUrl = await callSeedanceMiniVideo(videoPrompt, progressCb, durationSec, null, null);
-        } catch (sErr) {
-          var sMsg2 = (sErr && sErr.message) || '';
-          if (sMsg2.indexOf('Insufficient balance') !== -1 || sMsg2.indexOf('额度不足') !== -1) {
-            throw new Error('Agnes 2.5 视频生成提示：' + ((e && e.message) || '触发频控') + '（备用 Seedance 账号额度耗尽，请稍等 30 秒直接重试 Agnes AI 即可）');
-          }
-          throw new Error('Agnes 2.5 视频生成失败：' + ((e && e.message) || '未知') + '；备用 Seedance 亦失败：' + sMsg2);
-        }
-      }
+      videoUrl = await callAgnesVideo25(videoPrompt, progressCb, durationSec, null, null);
     } else if (selectedVideoModel === 'seedance-mini') {
       videoUrl = await callSeedanceMiniVideo(videoPrompt, progressCb, durationSec, null, null);
     } else {
@@ -10332,22 +10307,8 @@ async function generateFullVideo() {
         var pc = (function(idx) { return function(poll, maxPoll, status) { var s = document.getElementById('seg-status-' + idx); if (s) s.textContent = '轮询 ' + poll + '/' + maxPoll; }; })(i);
         var vUrl;
         if (selectedVideoModel === 'hunyuan') { vUrl = await callHunyuanVideo(segPrompt, pc, segDuration, null, null); }
-        else if (selectedVideoModel === 'agnes') {
-          try {
-            vUrl = await callAgnesVideo(segPrompt, pc, segDuration, null, null);
-          } catch (e) {
-            console.warn('Agnes segment ' + i + ' failed, falling back to Seedance Mini:', e);
-            vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, null).catch(function(err) { console.warn('Seedance fallback failed:', err); return null; });
-          }
-        }
-        else if (selectedVideoModel === 'agnes25') {
-          try {
-            vUrl = await callAgnesVideo25(segPrompt, pc, segDuration, null, null);
-          } catch (e) {
-            console.warn('Agnes 2.5 segment ' + i + ' failed, falling back to Seedance Mini:', e);
-            vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, null).catch(function(err) { console.warn('Seedance fallback failed:', err); return null; });
-          }
-        }
+        else if (selectedVideoModel === 'agnes') { vUrl = await callAgnesVideo(segPrompt, pc, segDuration, null, null); }
+        else if (selectedVideoModel === 'agnes25') { vUrl = await callAgnesVideo25(segPrompt, pc, segDuration, null, null); }
         else if (selectedVideoModel === 'seedance-mini') { vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, null); }
         else { vUrl = await callMiniMaxVideo(segPrompt, pc, segDuration, null, null); }
 
@@ -11407,37 +11368,9 @@ async function vcGenerateVideo() {
     if (vcSelectedModel === 'hunyuan') {
       videoUrl = await callHunyuanVideo(fullPrompt, onProgress, dur, null, vcRef);
     } else if (vcSelectedModel === 'agnes') {
-      try {
-        videoUrl = await callAgnesVideo(fullPrompt, onProgress, dur, null, vcRef);
-      } catch (e) {
-        console.warn('Agnes video failed, attempting Seedance Mini fallback:', e);
-        if (onProgress) onProgress(1, 1, 'Agnes 提示：' + ((e && e.message) || '暂时繁忙') + '，正在尝试 Seedance 2 Mini 兜底...');
-        try {
-          videoUrl = await callSeedanceMiniVideo(fullPrompt, onProgress, dur, null, vcRef);
-        } catch (sErr) {
-          var sMsg = (sErr && sErr.message) || '';
-          if (sMsg.indexOf('Insufficient balance') !== -1 || sMsg.indexOf('额度不足') !== -1) {
-            throw new Error('Agnes 视频生成提示：' + ((e && e.message) || '触发频控') + '（备用 Seedance 账号额度耗尽，请稍等 30 秒直接重试 Agnes AI 即可）');
-          }
-          throw new Error('Agnes 视频生成失败：' + ((e && e.message) || '未知') + '；备用 Seedance 2 Mini 亦失败：' + sMsg);
-        }
-      }
+      videoUrl = await callAgnesVideo(fullPrompt, onProgress, dur, null, vcRef);
     } else if (vcSelectedModel === 'agnes25') {
-      try {
-        videoUrl = await callAgnesVideo25(fullPrompt, onProgress, dur, null, vcRef);
-      } catch (e) {
-        console.warn('Agnes 2.5 video failed, attempting Seedance Mini fallback:', e);
-        if (onProgress) onProgress(1, 1, 'Agnes 2.5 提示：' + ((e && e.message) || '暂时繁忙') + '，正在尝试 Seedance 2 Mini 兜底...');
-        try {
-          videoUrl = await callSeedanceMiniVideo(fullPrompt, onProgress, dur, null, vcRef);
-        } catch (sErr) {
-          var sMsg2 = (sErr && sErr.message) || '';
-          if (sMsg2.indexOf('Insufficient balance') !== -1 || sMsg2.indexOf('额度不足') !== -1) {
-            throw new Error('Agnes 2.5 视频生成提示：' + ((e && e.message) || '触发频控') + '（备用 Seedance 账号额度耗尽，请稍等 30 秒直接重试 Agnes AI 即可）');
-          }
-          throw new Error('Agnes 2.5 视频生成失败：' + ((e && e.message) || '未知') + '；备用 Seedance 2 Mini 亦失败：' + sMsg2);
-        }
-      }
+      videoUrl = await callAgnesVideo25(fullPrompt, onProgress, dur, null, vcRef);
     } else if (vcSelectedModel === 'seedance-mini') {
       videoUrl = await callSeedanceMiniVideo(fullPrompt, onProgress, dur, null, vcRef);
     } else {
@@ -11655,21 +11588,8 @@ async function vcGenerateSegments() {
       // 分镜视频同样携带参考图；若用户提供了，每张片段都引用同一张
       var vcRef = vcRefImageDataUrl;
       if (vcSelectedModel === 'hunyuan') { vUrl = await callHunyuanVideo(segPrompt, pc, segDuration, null, vcRef); }
-      else if (vcSelectedModel === 'agnes') {
-        try {
-          vUrl = await callAgnesVideo(segPrompt, pc, segDuration, null, vcRef);
-        } catch (e) {
-          console.warn('Agnes segment ' + i + ' failed, falling back to Seedance Mini:', e);
-          vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, vcRef).catch(function(err) { console.warn('Seedance fallback failed:', err); return null; });
-        }
-      } else if (vcSelectedModel === 'agnes25') {
-        try {
-          vUrl = await callAgnesVideo25(segPrompt, pc, segDuration, null, vcRef);
-        } catch (e) {
-          console.warn('Agnes 2.5 segment ' + i + ' failed, falling back to Seedance Mini:', e);
-          vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, vcRef).catch(function(err) { console.warn('Seedance fallback failed:', err); return null; });
-        }
-      }
+      else if (vcSelectedModel === 'agnes') { vUrl = await callAgnesVideo(segPrompt, pc, segDuration, null, vcRef); }
+      else if (vcSelectedModel === 'agnes25') { vUrl = await callAgnesVideo25(segPrompt, pc, segDuration, null, vcRef); }
       else if (vcSelectedModel === 'seedance-mini') { vUrl = await callSeedanceMiniVideo(segPrompt, pc, segDuration, null, vcRef); }
       else { vUrl = await callMiniMaxVideo(segPrompt, pc, segDuration, null, vcRef); }
       if (vUrl) { okVideos.push({ url: vUrl, idx: i, seg: seg }); if (dot) { dot.style.background = '#10b981'; dot.style.animation = ''; } if (statusEl) statusEl.textContent = '✅'; }

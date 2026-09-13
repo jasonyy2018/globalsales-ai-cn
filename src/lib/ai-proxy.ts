@@ -1,3 +1,39 @@
+import fs from "fs";
+import path from "path";
+import { DATA_DIR } from "./data_paths";
+
+export function ensureEnvLoaded() {
+  if (process.env.AGNES_API_KEY && process.env.ARK_PLAN_API_KEY) return;
+  const candidates = [
+    path.resolve(process.cwd(), ".env"),
+    path.resolve(DATA_DIR, "..", ".env"),
+    path.resolve(__dirname, "..", "..", ".env"),
+    path.resolve(__dirname, "..", "..", "..", ".env"),
+    path.resolve(process.cwd(), "..", "..", ".env"),
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) {
+      try {
+        const text = fs.readFileSync(c, "utf8");
+        for (const line of text.split("\n")) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith("#")) continue;
+          const idx = trimmed.indexOf("=");
+          if (idx !== -1) {
+            const k = trimmed.slice(0, idx).trim();
+            const v = trimmed.slice(idx + 1).trim();
+            if (!process.env[k] || process.env[k] === "") {
+              process.env[k] = v;
+            }
+          }
+        }
+        break;
+      } catch {}
+    }
+  }
+}
+ensureEnvLoaded();
+
 export interface ProxyRouteConfig {
   url: string;
   method: "GET" | "POST";
@@ -136,6 +172,7 @@ export async function forwardProxyRequest(
   request: Request,
   extraPath: string = ""
 ): Promise<Response> {
+  ensureEnvLoaded();
   const config = PROXY_ROUTES[routePath];
   if (!config) {
     return new Response(JSON.stringify({ error: "Route not found" }), {
@@ -144,7 +181,27 @@ export async function forwardProxyRequest(
     });
   }
 
-  const authKey = config.getAuthKey();
+  let authKey = config.getAuthKey();
+  if (!authKey) {
+    const incomingAuth = request.headers.get("Authorization");
+    if (incomingAuth) {
+      const match = incomingAuth.match(/^Bearer\s+(.+)$/i);
+      if (match && match[1].trim()) {
+        authKey = match[1].trim();
+      }
+    }
+  }
+
+  if (config.authType !== "none" && !authKey) {
+    return new Response(
+      JSON.stringify({ error: `服务端未配置 ${routePath} 对应的 API 密钥，请检查 .env 文件` }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
+
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(config.extraHeaders || {}),
